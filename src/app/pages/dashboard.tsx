@@ -86,17 +86,17 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiData.map((kpi, index) => (
           <Card key={index} className="hover:shadow-md transition-shadow duration-150">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">
                     {kpi.title}
                   </p>
-                  <p className="text-[1.75rem] font-semibold text-foreground">
+                  <p className="text-[1.75rem] font-semibold text-foreground leading-tight">
                     {kpi.value}
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-[10px] ${kpi.bgColor} flex items-center justify-center`}>
+                <div className={`w-12 h-12 rounded-[10px] ${kpi.bgColor} flex items-center justify-center flex-shrink-0`}>
                   <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
                 </div>
               </div>

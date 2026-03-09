@@ -94,24 +94,63 @@ export function Billing() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="p-6"><div className="flex items-start justify-between"><div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Ingresos del Mes</p><p className="text-[1.75rem] font-semibold text-foreground">${totalRevenue.toLocaleString()}</p></div><div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center"><DollarSign className="w-6 h-6 text-primary" /></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-start justify-between"><div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Cobros Pendientes</p><p className="text-[1.75rem] font-semibold text-foreground">${pendingRevenue.toLocaleString()}</p><p className="text-[0.75rem] text-foreground-secondary mt-1">{invoices.filter(b => b.status !== "paid").length} facturas</p></div><div className="w-12 h-12 rounded-[10px] bg-warning/10 flex items-center justify-center"><Clock className="w-6 h-6 text-warning" /></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-start justify-between"><div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Tasa de Cobro</p><p className="text-[1.75rem] font-semibold text-foreground">{collectionRate}%</p><p className="text-[0.75rem] text-success mt-1">{collectionRate >= 80 ? "Excelente" : collectionRate >= 60 ? "Buena" : "Mejorable"}</p></div><div className="w-12 h-12 rounded-[10px] bg-success/10 flex items-center justify-center"><TrendingUp className="w-6 h-6 text-success" /></div></div></CardContent></Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Ingresos del Mes</p>
+                <p className="text-[1.75rem] font-semibold text-foreground leading-tight">${totalRevenue.toLocaleString()}</p>
+                <p className="text-[0.75rem] text-foreground-secondary mt-1">&nbsp;</p>
+              </div>
+              <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-6 h-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Cobros Pendientes</p>
+                <p className="text-[1.75rem] font-semibold text-foreground leading-tight">${pendingRevenue.toLocaleString()}</p>
+                <p className="text-[0.75rem] text-foreground-secondary mt-1">{invoices.filter(b => b.status !== "paid").length} facturas</p>
+              </div>
+              <div className="w-12 h-12 rounded-[10px] bg-warning/10 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-6 h-6 text-warning" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Tasa de Cobro</p>
+                <p className="text-[1.75rem] font-semibold text-foreground leading-tight">{collectionRate}%</p>
+                <p className="text-[0.75rem] text-success mt-1">{collectionRate >= 80 ? "Excelente" : collectionRate >= 60 ? "Buena" : "Mejorable"}</p>
+              </div>
+              <div className="w-12 h-12 rounded-[10px] bg-success/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-6 h-6 text-success" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card><CardContent className="p-4">
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex-1 min-w-[250px]">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
               <input type="text" placeholder="Buscar por paciente o número de factura..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full h-10 pl-10 pr-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150" />
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {(["all","paid","pending","overdue"] as const).map(s => (
               <button key={s} onClick={() => setStatusFilter(s)}
-                className={`px-3 py-2 text-[0.75rem] font-medium rounded-[10px] transition-all ${statusFilter === s ? "bg-primary text-white" : "bg-surface-alt text-foreground-secondary hover:text-foreground"}`}>
+                className={`h-10 px-3 text-[0.8125rem] font-medium rounded-[10px] transition-all ${statusFilter === s ? "bg-primary text-white" : "bg-surface-alt text-foreground-secondary hover:text-foreground"}`}>
                 {s === "all" ? "Todas" : s === "paid" ? "Pagadas" : s === "pending" ? "Pendientes" : "Vencidas"}
               </button>
             ))}

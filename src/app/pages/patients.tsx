@@ -73,8 +73,8 @@ export function Patients() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex-1 min-w-[250px]">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
                 <input type="text" placeholder="Buscar por nombre, email o teléfono..." value={searchTerm}
@@ -82,10 +82,10 @@ export function Patients() {
                   className="w-full h-10 pl-10 pr-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150" />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {(["all", "active", "inactive"] as const).map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)}
-                  className={`px-3 py-2 text-[0.75rem] font-medium rounded-[10px] transition-all ${statusFilter === s ? "bg-primary text-white" : "bg-surface-alt text-foreground-secondary hover:text-foreground"}`}>
+                  className={`h-10 px-3 text-[0.8125rem] font-medium rounded-[10px] transition-all ${statusFilter === s ? "bg-primary text-white" : "bg-surface-alt text-foreground-secondary hover:text-foreground"}`}>
                   {s === "all" ? "Todos" : s === "active" ? "Activos" : "Inactivos"}
                 </button>
               ))}
