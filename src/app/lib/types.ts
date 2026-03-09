@@ -1,0 +1,232 @@
+// ============================================================
+// Database types for Supabase
+// In production, generate these with: npx supabase gen types typescript
+// ============================================================
+
+export interface Database {
+  public: {
+    Tables: {
+      clinics: {
+        Row: Clinic;
+        Insert: Omit<Clinic, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Clinic, "id">>;
+      };
+      users: {
+        Row: User;
+        Insert: Omit<User, "created_at" | "updated_at">;
+        Update: Partial<Omit<User, "id">>;
+      };
+      patients: {
+        Row: Patient;
+        Insert: Omit<Patient, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Patient, "id">>;
+      };
+      appointments: {
+        Row: Appointment;
+        Insert: Omit<Appointment, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Appointment, "id">>;
+      };
+      consultations: {
+        Row: Consultation;
+        Insert: Omit<Consultation, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Consultation, "id">>;
+      };
+      prescriptions: {
+        Row: Prescription;
+        Insert: Omit<Prescription, "id">;
+        Update: Partial<Omit<Prescription, "id">>;
+      };
+      lab_results: {
+        Row: LabResult;
+        Insert: Omit<LabResult, "id">;
+        Update: Partial<Omit<LabResult, "id">>;
+      };
+      invoices: {
+        Row: Invoice;
+        Insert: Omit<Invoice, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Invoice, "id">>;
+      };
+      clinic_schedules: {
+        Row: ClinicSchedule;
+        Insert: Omit<ClinicSchedule, "id">;
+        Update: Partial<Omit<ClinicSchedule, "id">>;
+      };
+      notification_preferences: {
+        Row: NotificationPreferences;
+        Insert: Omit<NotificationPreferences, "id">;
+        Update: Partial<Omit<NotificationPreferences, "id">>;
+      };
+    };
+    Views: {
+      patients_with_stats: {
+        Row: PatientWithStats;
+      };
+    };
+    Functions: {
+      get_dashboard_stats: {
+        Args: { p_clinic_id: string };
+        Returns: DashboardStats;
+      };
+    };
+  };
+}
+
+// ============================================================
+// Entity types
+// ============================================================
+
+export interface Clinic {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  specialties: string[];
+  plan: "free" | "basic" | "premium";
+  plan_expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface User {
+  id: string;
+  clinic_id: string;
+  full_name: string;
+  email: string;
+  role: "admin" | "doctor" | "receptionist";
+  specialty: string | null;
+  avatar_url: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Patient {
+  id: string;
+  clinic_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  birthdate: string | null;
+  blood_type: string | null;
+  allergies: string[];
+  status: "active" | "inactive";
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PatientWithStats extends Patient {
+  age: number | null;
+  total_visits: number;
+  last_visit: string | null;
+}
+
+export interface Appointment {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  doctor_id: string;
+  date: string;
+  start_time: string;
+  duration_minutes: number;
+  type: string;
+  status: "pending" | "confirmed" | "completed" | "cancelled";
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppointmentWithRelations extends Appointment {
+  patient: Pick<Patient, "full_name">;
+  doctor: Pick<User, "full_name">;
+}
+
+export interface Consultation {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  doctor_id: string;
+  appointment_id: string | null;
+  date: string;
+  time: string | null;
+  type: "consulta" | "prescription" | "lab";
+  title: string;
+  description: string | null;
+  blood_pressure: string | null;
+  temperature: string | null;
+  weight: string | null;
+  height: string | null;
+  diagnosis: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConsultationWithRelations extends Consultation {
+  prescriptions: Prescription[];
+  lab_results: LabResult[];
+}
+
+export interface Prescription {
+  id: string;
+  consultation_id: string;
+  medication_name: string;
+  dosage: string;
+  duration: string;
+}
+
+export interface LabResult {
+  id: string;
+  consultation_id: string;
+  test_name: string;
+  result: string;
+  status: "normal" | "abnormal";
+}
+
+export interface Invoice {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  appointment_id: string | null;
+  invoice_number: string;
+  date: string;
+  amount: number;
+  service: string;
+  payment_method: string | null;
+  status: "paid" | "pending" | "overdue";
+  paid_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceWithPatient extends Invoice {
+  patient: Pick<Patient, "full_name">;
+}
+
+export interface ClinicSchedule {
+  id: string;
+  clinic_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
+}
+
+export interface NotificationPreferences {
+  id: string;
+  user_id: string;
+  new_appointments: boolean;
+  appointment_reminders: boolean;
+  appointment_changes: boolean;
+  patient_messages: boolean;
+  system_updates: boolean;
+}
+
+export interface DashboardStats {
+  appointments_today: number;
+  occupancy_pct: number;
+  new_patients_month: number;
+  revenue_today: number;
+}

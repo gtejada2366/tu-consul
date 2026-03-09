@@ -1,0 +1,136 @@
+@import "tailwindcss";
+@import "./fonts.css";
+
+@theme {
+  --color-primary: #2563EB;
+  --color-primary-dark: #1E40AF;
+  --color-primary-foreground: #FFFFFF;
+
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+
+  --color-background: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F1F5F9;
+
+  --color-foreground: #0F172A;
+  --color-foreground-secondary: #475569;
+
+  --color-border: #E2E8F0;
+  --color-ring: #2563EB;
+}
+
+:root {
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-size: 16px;
+
+  --text-h1: 1.75rem;
+  --text-h2: 1.375rem;
+  --text-body: 0.875rem;
+  --text-label: 0.75rem;
+
+  --leading-h1: 2.25rem;
+  --leading-h2: 1.875rem;
+  --leading-body: 1.375rem;
+  --leading-label: 1rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --foreground: #0F172A;
+  --foreground-secondary: #475569;
+  --surface-alt: #F1F5F9;
+  --border: #E2E8F0;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-family);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    font-size: var(--font-size);
+    scroll-behavior: smooth;
+  }
+
+  h1 {
+    font-size: var(--text-h1);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--leading-h1);
+    color: var(--foreground);
+  }
+
+  h2 {
+    font-size: var(--text-h2);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--leading-h2);
+    color: var(--foreground);
+  }
+
+  h3 {
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--leading-body);
+    color: var(--foreground);
+  }
+
+  h4 {
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--leading-body);
+    color: var(--foreground);
+  }
+
+  p {
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--leading-body);
+    color: var(--foreground);
+  }
+
+  label {
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--leading-label);
+    color: var(--foreground);
+  }
+
+  button {
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--leading-body);
+  }
+
+  input, textarea, select {
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--leading-body);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--surface-alt);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--foreground-secondary);
+  }
+}
