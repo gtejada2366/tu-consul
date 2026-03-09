@@ -37,35 +37,35 @@ export function usePatientAppointments(patientId: string | undefined) {
   const [upcoming, setUpcoming] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAppointments = useCallback(async () => {
     if (!patientId || !clinic) {
       setLoading(false);
       return;
     }
 
-    async function fetch() {
-      const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toISOString().split("T")[0];
 
-      const { data } = await supabase
-        .from("appointments")
-        .select("*, patient:patients(full_name), doctor:users(full_name)")
-        .eq("patient_id", patientId!)
-        .eq("clinic_id", clinic!.id)
-        .gte("date", today)
-        .neq("status", "cancelled")
-        .order("date")
-        .order("start_time");
+    const { data } = await supabase
+      .from("appointments")
+      .select("*, patient:patients(full_name), doctor:users(full_name)")
+      .eq("patient_id", patientId)
+      .eq("clinic_id", clinic.id)
+      .gte("date", today)
+      .neq("status", "cancelled")
+      .order("date")
+      .order("start_time");
 
-      if (data) {
-        setUpcoming(data as unknown as AppointmentWithRelations[]);
-      }
-      setLoading(false);
+    if (data) {
+      setUpcoming(data as unknown as AppointmentWithRelations[]);
     }
-
-    fetch();
+    setLoading(false);
   }, [patientId, clinic]);
 
-  return { upcoming, loading };
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
+
+  return { upcoming, loading, refetch: fetchAppointments };
 }
 
 export function useAppointmentMutations() {

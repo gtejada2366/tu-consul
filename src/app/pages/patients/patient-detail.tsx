@@ -17,9 +17,9 @@ import { inputClass, labelClass, textareaClass } from "../../components/modals/f
 export function PatientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { patient, loading } = usePatient(id);
-  const { upcoming: upcomingAppointments } = usePatientAppointments(id);
-  const { consultations } = useMedicalHistory(id);
+  const { patient, loading, refetch: refetchPatient } = usePatient(id);
+  const { upcoming: upcomingAppointments, refetch: refetchApts } = usePatientAppointments(id);
+  const { consultations, refetch: refetchHistory } = useMedicalHistory(id);
   const { updatePatient, deletePatient } = usePatientMutations();
   const { createAppointment } = useAppointmentMutations();
   const { createConsultation } = useConsultationMutations();
@@ -57,7 +57,7 @@ export function PatientDetail() {
       allergies: editForm.allergies.trim() ? editForm.allergies.split(",").map(a => a.trim()) : [],
     });
     setSaving(false);
-    if (error) { toast.error(error); } else { toast.success("Paciente actualizado"); setShowEditModal(false); window.location.reload(); }
+    if (error) { toast.error(error); } else { toast.success("Paciente actualizado"); setShowEditModal(false); refetchPatient(); }
   }
 
   async function handleDelete() {
@@ -78,7 +78,7 @@ export function PatientDetail() {
       notes: aptForm.notes || undefined,
     });
     setSaving(false);
-    if (error) { toast.error(error); } else { toast.success("Cita agendada"); setShowAptModal(false); window.location.reload(); }
+    if (error) { toast.error(error); } else { toast.success("Cita agendada"); setShowAptModal(false); refetchApts(); }
   }
 
   async function handleCreateCon(e: React.FormEvent) {
@@ -97,7 +97,7 @@ export function PatientDetail() {
     if (error) { toast.error(error); } else {
       toast.success("Evolución registrada"); setShowConModal(false);
       setConForm({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
-      window.location.reload();
+      refetchHistory();
     }
   }
 

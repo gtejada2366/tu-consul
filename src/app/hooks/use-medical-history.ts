@@ -4,11 +4,12 @@ import { useAuth } from "../contexts/auth-context";
 import type { ConsultationWithRelations } from "../lib/types";
 
 export function useMedicalHistory(patientId: string | undefined) {
+  const { clinic } = useAuth();
   const [consultations, setConsultations] = useState<ConsultationWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchHistory = useCallback(async () => {
-    if (!patientId) {
+    if (!patientId || !clinic) {
       setLoading(false);
       return;
     }
@@ -18,6 +19,7 @@ export function useMedicalHistory(patientId: string | undefined) {
       .from("consultations")
       .select("*, prescriptions(*), lab_results(*)")
       .eq("patient_id", patientId)
+      .eq("clinic_id", clinic.id)
       .order("date", { ascending: false })
       .order("time", { ascending: false });
 
@@ -25,7 +27,7 @@ export function useMedicalHistory(patientId: string | undefined) {
       setConsultations(data as unknown as ConsultationWithRelations[]);
     }
     setLoading(false);
-  }, [patientId]);
+  }, [patientId, clinic]);
 
   useEffect(() => {
     fetchHistory();
@@ -81,7 +83,7 @@ export function useConsultationMutations() {
     const consultationId = (consultation as Record<string, unknown>)?.id;
 
     if (data.prescriptions?.length && consultationId) {
-      await supabase.from("prescriptions").insert(
+      const { error: rxError } = await supabase.from("prescriptions").insert(
         data.prescriptions.map((p) => ({
           consultation_id: consultationId,
           medication_name: p.medication_name,
@@ -89,10 +91,11 @@ export function useConsultationMutations() {
           duration: p.duration,
         })) as Record<string, unknown>[]
       );
+      if (rxError) return { error: "Consulta creada pero error en recetas: " + rxError.message };
     }
 
     if (data.lab_results?.length && consultationId) {
-      await supabase.from("lab_results").insert(
+      const { error: labError } = await supabase.from("lab_results").insert(
         data.lab_results.map((r) => ({
           consultation_id: consultationId,
           test_name: r.test_name,
@@ -100,6 +103,7 @@ export function useConsultationMutations() {
           status: r.status,
         })) as Record<string, unknown>[]
       );
+      if (labError) return { error: "Consulta creada pero error en laboratorios: " + labError.message };
     }
 
     return { error: null };

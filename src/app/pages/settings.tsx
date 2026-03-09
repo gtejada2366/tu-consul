@@ -42,6 +42,25 @@ export function Settings() {
   const [clinicPhone, setClinicPhone] = useState(clinic?.phone || "");
   const [clinicAddress, setClinicAddress] = useState(clinic?.address || "");
 
+  // Schedule form state
+  const [scheduleEdits, setScheduleEdits] = useState<Record<number, { start_time: string; end_time: string; is_active: boolean }>>({});
+
+  function getScheduleValue(dayIndex: number, field: "start_time" | "end_time" | "is_active") {
+    const edit = scheduleEdits[dayIndex];
+    const schedule = schedules.find(s => s.day_of_week === dayIndex);
+    if (edit && field in edit) return edit[field];
+    if (field === "start_time") return schedule?.start_time?.slice(0, 5) || "09:00";
+    if (field === "end_time") return schedule?.end_time?.slice(0, 5) || "18:00";
+    return schedule?.is_active ?? true;
+  }
+
+  function updateScheduleField(dayIndex: number, field: string, value: string | boolean) {
+    setScheduleEdits(prev => ({
+      ...prev,
+      [dayIndex]: { ...prev[dayIndex] || {}, [field]: value }
+    }));
+  }
+
   // Password form state
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -250,45 +269,59 @@ export function Settings() {
                   <Loading />
                 ) : (
                   <div className="space-y-4">
-                    {dayNames.map((day, index) => {
-                      const schedule = schedules.find(s => s.day_of_week === index);
-                      return (
-                        <div key={day} className="flex items-center gap-4">
-                          <div className="w-32">
-                            <label className="text-[0.875rem] font-medium text-foreground">
-                              {day}
-                            </label>
-                          </div>
-                          <div className="flex items-center gap-2 flex-1">
-                            <input
-                              type="time"
-                              defaultValue={schedule?.start_time?.slice(0, 5) || "09:00"}
-                              className="h-10 px-3 bg-surface border border-border rounded-[10px]
-                                text-[0.875rem] text-foreground
-                                focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                            />
-                            <span className="text-foreground-secondary">a</span>
-                            <input
-                              type="time"
-                              defaultValue={schedule?.end_time?.slice(0, 5) || "18:00"}
-                              className="h-10 px-3 bg-surface border border-border rounded-[10px]
-                                text-[0.875rem] text-foreground
-                                focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                            />
-                          </div>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              defaultChecked={schedule?.is_active ?? true}
-                              className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                            />
-                            <span className="text-[0.75rem] text-foreground-secondary">Activo</span>
+                    {dayNames.map((day, index) => (
+                      <div key={day} className="flex items-center gap-4">
+                        <div className="w-32">
+                          <label className="text-[0.875rem] font-medium text-foreground">
+                            {day}
                           </label>
                         </div>
-                      );
-                    })}
+                        <div className="flex items-center gap-2 flex-1">
+                          <input
+                            type="time"
+                            value={getScheduleValue(index, "start_time") as string}
+                            onChange={e => updateScheduleField(index, "start_time", e.target.value)}
+                            className="h-10 px-3 bg-surface border border-border rounded-[10px]
+                              text-[0.875rem] text-foreground
+                              focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                          />
+                          <span className="text-foreground-secondary">a</span>
+                          <input
+                            type="time"
+                            value={getScheduleValue(index, "end_time") as string}
+                            onChange={e => updateScheduleField(index, "end_time", e.target.value)}
+                            className="h-10 px-3 bg-surface border border-border rounded-[10px]
+                              text-[0.875rem] text-foreground
+                              focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                          />
+                        </div>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={getScheduleValue(index, "is_active") as boolean}
+                            onChange={e => updateScheduleField(index, "is_active", e.target.checked)}
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                          />
+                          <span className="text-[0.75rem] text-foreground-secondary">Activo</span>
+                        </label>
+                      </div>
+                    ))}
                     <div className="pt-4">
-                      <Button variant="primary" onClick={() => toast.success("Horarios guardados correctamente")}>
+                      <Button variant="primary" onClick={async () => {
+                        const updated = dayNames.map((_, index) => {
+                          const existing = schedules.find(s => s.day_of_week === index);
+                          return {
+                            ...(existing || {}),
+                            day_of_week: index,
+                            start_time: getScheduleValue(index, "start_time") as string,
+                            end_time: getScheduleValue(index, "end_time") as string,
+                            is_active: getScheduleValue(index, "is_active") as boolean,
+                          };
+                        });
+                        const { error } = await saveSchedules(updated as any);
+                        if (error) { toast.error("Error al guardar: " + error); }
+                        else { toast.success("Horarios guardados correctamente"); }
+                      }}>
                         <Save className="w-4 h-4 mr-2" />
                         Guardar Horarios
                       </Button>
@@ -332,7 +365,10 @@ export function Settings() {
                           <input
                             type="checkbox"
                             defaultChecked={prefs ? (prefs as unknown as Record<string, boolean>)[item.key] : false}
-                            onChange={(e) => updatePrefs({ [item.key]: e.target.checked })}
+                            onChange={async (e) => {
+                              const { error } = await updatePrefs({ [item.key]: e.target.checked });
+                              if (error) toast.error("Error al guardar preferencia");
+                            }}
                             className="sr-only peer"
                           />
                           <div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>

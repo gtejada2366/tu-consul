@@ -36,30 +36,30 @@ export function usePatient(id: string | undefined) {
   const [patient, setPatient] = useState<PatientWithStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchPatient = useCallback(async () => {
     if (!id || !clinic) {
       setLoading(false);
       return;
     }
 
-    async function fetch() {
-      const { data, error } = await supabase
-        .from("patients_with_stats")
-        .select("*")
-        .eq("id", id!)
-        .eq("clinic_id", clinic!.id)
-        .single();
+    const { data, error } = await supabase
+      .from("patients_with_stats")
+      .select("*")
+      .eq("id", id)
+      .eq("clinic_id", clinic.id)
+      .single();
 
-      if (!error && data) {
-        setPatient(data as unknown as PatientWithStats);
-      }
-      setLoading(false);
+    if (!error && data) {
+      setPatient(data as unknown as PatientWithStats);
     }
-
-    fetch();
+    setLoading(false);
   }, [id, clinic]);
 
-  return { patient, loading };
+  useEffect(() => {
+    fetchPatient();
+  }, [fetchPatient]);
+
+  return { patient, loading, refetch: fetchPatient };
 }
 
 export function usePatientMutations() {

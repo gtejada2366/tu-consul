@@ -46,6 +46,7 @@ export function Agenda() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [agendaSearch, setAgendaSearch] = useState("");
   const [aptForm, setAptForm] = useState({ patient_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
   const [editForm, setEditForm] = useState({ date: "", start_time: "", duration_minutes: "", type: "", status: "", notes: "" });
 
@@ -138,12 +139,17 @@ export function Agenda() {
               <div className="relative">
                 <div className="sticky top-0 bg-surface z-10 border-b border-border p-4">
                   <div className="flex items-center gap-2"><Search className="w-4 h-4 text-foreground-secondary" />
-                    <input type="text" placeholder="Buscar paciente o cita..." className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
+                    <input type="text" placeholder="Buscar paciente o cita..." value={agendaSearch} onChange={e => setAgendaSearch(e.target.value)} className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
                   </div>
                 </div>
                 <div className="p-4 space-y-0">
                   {timeSlots.map((time) => {
-                    const slotApts = appointments.filter(a => a.start_time?.slice(0, 5) === time);
+                    const slotApts = appointments.filter(a => {
+                      if (a.start_time?.slice(0, 5) !== time) return false;
+                      if (!agendaSearch.trim()) return true;
+                      const q = agendaSearch.toLowerCase();
+                      return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+                    });
                     return (
                       <div key={time} className="flex border-b border-border last:border-0">
                         <div className="w-16 py-3 text-[0.75rem] text-foreground-secondary font-medium">{time}</div>
