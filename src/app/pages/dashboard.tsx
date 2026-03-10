@@ -140,7 +140,7 @@ export function Dashboard() {
                         </Badge>
                       </div>
                       <p className="text-[0.75rem] text-foreground-secondary">
-                        {appointment.start_time?.slice(0, 5)} • {appointment.type}
+                        {new Date(appointment.date + "T00:00").toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} • {appointment.start_time?.slice(0, 5)} • {appointment.type}
                       </p>
                     </div>
                     <Link to="/agenda">
