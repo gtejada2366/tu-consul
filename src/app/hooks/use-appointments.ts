@@ -32,6 +32,37 @@ export function useAppointments(date: string) {
   return { appointments, loading, refetch: fetchAppointments };
 }
 
+export function useWeekAppointments(startDate: string, endDate: string) {
+  const { clinic } = useAuth();
+  const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAppointments = useCallback(async () => {
+    if (!clinic) return;
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("*, patient:patients(full_name), doctor:users(full_name)")
+      .eq("clinic_id", clinic.id)
+      .gte("date", startDate)
+      .lte("date", endDate)
+      .order("date")
+      .order("start_time");
+
+    if (!error && data) {
+      setAppointments(data as unknown as AppointmentWithRelations[]);
+    }
+    setLoading(false);
+  }, [clinic, startDate, endDate]);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
+
+  return { appointments, loading, refetch: fetchAppointments };
+}
+
 export function usePatientAppointments(patientId: string | undefined) {
   const { clinic } = useAuth();
   const [upcoming, setUpcoming] = useState<AppointmentWithRelations[]>([]);

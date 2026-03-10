@@ -11,7 +11,7 @@ import {
   Calendar as CalendarIcon, Clock, User, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useAppointments, useAppointmentMutations } from "../hooks/use-appointments";
+import { useAppointments, useWeekAppointments, useAppointmentMutations } from "../hooks/use-appointments";
 import { usePatients } from "../hooks/use-patients";
 import { useClinicUsers, useClinicSchedules } from "../hooks/use-clinic";
 import type { AppointmentWithRelations } from "../lib/types";
@@ -23,18 +23,40 @@ function formatDisplayDate(date: Date): string {
   return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function getWeekRange(date: Date): { start: Date; end: Date } {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun
+  const diffToMon = day === 0 ? -6 : 1 - day;
+  const start = new Date(d);
+  start.setDate(d.getDate() + diffToMon);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start, end };
+}
+
+const WEEK_DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
 export function Agenda() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const { appointments, loading, refetch } = useAppointments(formatDate(currentDate));
+  const weekRange = getWeekRange(currentDate);
+  const { appointments: weekAppointments, loading: weekLoading, refetch: refetchWeek } = useWeekAppointments(formatDate(weekRange.start), formatDate(weekRange.end));
   const { createAppointment, updateAppointment, cancelAppointment } = useAppointmentMutations();
   const { patients } = usePatients();
   const { schedules } = useClinicSchedules();
 
-  // Dynamic time slots from clinic schedule for current day of week (0=Sun..6=Sat → DB: 0=Mon..5=Sat)
-  const dayOfWeek = currentDate.getDay(); // 0=Sun, 1=Mon...6=Sat
-  const dbDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert to 0=Mon...6=Sun
+  // Dynamic time slots from clinic schedule for current day of week
+  const dayOfWeek = currentDate.getDay();
+  const dbDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   const todaySchedule = schedules.find(s => s.day_of_week === dbDayOfWeek && s.is_active);
   const timeSlots = generateTimeSlots(todaySchedule?.start_time?.slice(0, 5), todaySchedule?.end_time?.slice(0, 5));
+
+  // Week days array for week view
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekRange.start);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | null>(null);
   const [view, setView] = useState<"day" | "week">("day");
 
@@ -48,7 +70,7 @@ export function Agenda() {
   const [aptForm, setAptForm] = useState({ patient_id: "", doctor_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
   const [editForm, setEditForm] = useState({ date: "", start_time: "", duration_minutes: "", type: "", status: "", notes: "", doctor_id: "" });
 
-  function goToDay(offset: number) { const d = new Date(currentDate); d.setDate(d.getDate() + offset); setCurrentDate(d); setSelectedAppointment(null); }
+  function goToDay(offset: number) { const d = new Date(currentDate); d.setDate(d.getDate() + (view === "week" ? offset * 7 : offset)); setCurrentDate(d); setSelectedAppointment(null); }
   function goToToday() { setCurrentDate(new Date()); setSelectedAppointment(null); }
 
   function openCreateModal() {
@@ -78,7 +100,7 @@ export function Agenda() {
     });
     setSaving(false);
     if (error) { toast.error(error); }
-    else { toast.success("Cita creada"); setShowCreateModal(false); refetch(); }
+    else { toast.success("Cita creada"); setShowCreateModal(false); refetch(); refetchWeek(); }
   }
 
   async function handleEditApt(e: React.FormEvent) {
@@ -93,7 +115,7 @@ export function Agenda() {
     });
     setSaving(false);
     if (error) { toast.error(error); }
-    else { toast.success("Cita actualizada"); setShowEditModal(false); setSelectedAppointment(null); refetch(); }
+    else { toast.success("Cita actualizada"); setShowEditModal(false); setSelectedAppointment(null); refetch(); refetchWeek(); }
   }
 
   async function handleCancelApt() {
@@ -102,7 +124,7 @@ export function Agenda() {
     const { error } = await cancelAppointment(selectedAppointment.id);
     setSaving(false);
     if (error) { toast.error(error); }
-    else { toast.success("Cita cancelada"); setShowCancelModal(false); setSelectedAppointment(null); refetch(); }
+    else { toast.success("Cita cancelada"); setShowCancelModal(false); setSelectedAppointment(null); refetch(); refetchWeek(); }
   }
 
   return (
@@ -119,7 +141,7 @@ export function Agenda() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => goToDay(-1)}><ChevronLeft className="w-4 h-4" /></Button>
-            <div className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 text-foreground-secondary hidden sm:block" /><span className="font-semibold text-foreground capitalize text-[0.8125rem] sm:text-[0.875rem]">{formatDisplayDate(currentDate)}</span></div>
+            <div className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 text-foreground-secondary hidden sm:block" /><span className="font-semibold text-foreground capitalize text-[0.8125rem] sm:text-[0.875rem]">{view === "week" ? `${weekRange.start.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — ${weekRange.end.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}` : formatDisplayDate(currentDate)}</span></div>
             <Button variant="ghost" size="sm" onClick={() => goToDay(1)}><ChevronRight className="w-4 h-4" /></Button>
           </div>
           <div className="flex items-center gap-2">
@@ -134,7 +156,8 @@ export function Agenda() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2"><CardContent className="p-0">
-          {loading ? <Loading /> : (
+          {(view === "day" ? loading : weekLoading) ? <Loading /> : view === "day" ? (
+            /* ===== DAY VIEW ===== */
             <div className="overflow-y-auto max-h-[600px]">
               <div className="relative">
                 <div className="sticky top-0 bg-surface z-10 border-b border-border p-4">
@@ -177,6 +200,69 @@ export function Agenda() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* ===== WEEK VIEW ===== */
+            <div className="overflow-x-auto">
+              <div className="min-w-[700px]">
+                {/* Week header */}
+                <div className="grid grid-cols-7 border-b border-border sticky top-0 bg-surface z-10">
+                  {weekDays.map((d, i) => {
+                    const isToday = formatDate(d) === formatDate(new Date());
+                    const isSelected = formatDate(d) === formatDate(currentDate);
+                    return (
+                      <button key={i} onClick={() => { setCurrentDate(new Date(d)); setView("day"); }}
+                        className={`py-3 text-center border-r border-border last:border-r-0 transition-colors hover:bg-surface-alt
+                          ${isToday ? "bg-primary/5" : ""} ${isSelected ? "bg-primary/10" : ""}`}>
+                        <p className="text-[0.6875rem] font-medium text-foreground-secondary">{WEEK_DAY_NAMES[i]}</p>
+                        <p className={`text-[1rem] font-semibold mt-0.5 ${isToday ? "text-primary" : "text-foreground"}`}>
+                          {d.getDate()}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Week body */}
+                <div className="grid grid-cols-7 min-h-[400px]">
+                  {weekDays.map((d, i) => {
+                    const dateStr = formatDate(d);
+                    const dayApts = weekAppointments
+                      .filter(a => a.date === dateStr)
+                      .filter(a => {
+                        if (!agendaSearch.trim()) return true;
+                        const q = agendaSearch.toLowerCase();
+                        return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+                      });
+                    const isToday = dateStr === formatDate(new Date());
+                    return (
+                      <div key={i} className={`border-r border-border last:border-r-0 p-1.5 space-y-1 ${isToday ? "bg-primary/5" : ""}`}>
+                        {dayApts.length > 0 ? dayApts.map(apt => (
+                          <motion.div key={apt.id} whileHover={{ scale: 1.02 }} onClick={() => setSelectedAppointment(apt)}
+                            className={`p-2 rounded-[8px] cursor-pointer border-l-3 transition-all duration-150 text-left
+                              ${apt.status === "confirmed" && "bg-success/10 border-success"}
+                              ${apt.status === "pending" && "bg-warning/10 border-warning"}
+                              ${apt.status === "in_transit" && "bg-warning/10 border-warning"}
+                              ${apt.status === "in_progress" && "bg-success/10 border-success"}
+                              ${apt.status === "completed" && "bg-primary/10 border-primary"}
+                              ${apt.status === "cancelled" && "bg-danger/10 border-danger"}`}>
+                            <p className="text-[0.6875rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
+                            <p className="text-[0.625rem] text-foreground-secondary">{apt.start_time?.slice(0, 5)}</p>
+                            <p className="text-[0.5625rem] text-foreground-secondary truncate">{apt.type}</p>
+                          </motion.div>
+                        )) : (
+                          <p className="text-[0.625rem] text-foreground-secondary text-center pt-4 opacity-50">Sin citas</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Search bar for week view */}
+              <div className="border-t border-border p-4">
+                <div className="flex items-center gap-2"><Search className="w-4 h-4 text-foreground-secondary" />
+                  <input type="text" placeholder="Buscar paciente o cita..." value={agendaSearch} onChange={e => setAgendaSearch(e.target.value)} className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
                 </div>
               </div>
             </div>
