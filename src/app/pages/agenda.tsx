@@ -70,6 +70,67 @@ export function Agenda() {
   const [aptForm, setAptForm] = useState({ patient_id: "", doctor_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
   const [editForm, setEditForm] = useState({ date: "", start_time: "", duration_minutes: "", type: "", status: "", notes: "", doctor_id: "" });
 
+  // Drag & Drop state
+  const [draggedAptId, setDraggedAptId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null); // "time:HH:MM" or "date:YYYY-MM-DD"
+
+  function canDrag(apt: AppointmentWithRelations) {
+    return apt.status !== "completed" && apt.status !== "cancelled";
+  }
+
+  function handleDragStart(e: React.DragEvent, apt: AppointmentWithRelations) {
+    if (!canDrag(apt)) { e.preventDefault(); return; }
+    setDraggedAptId(apt.id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", apt.id);
+    // Make ghost semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "0.5";
+    }
+  }
+
+  function handleDragEnd(e: React.DragEvent) {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "1";
+    }
+    setDraggedAptId(null);
+    setDropTarget(null);
+  }
+
+  function handleDragOver(e: React.DragEvent, targetKey: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTarget(targetKey);
+  }
+
+  function handleDragLeave() {
+    setDropTarget(null);
+  }
+
+  async function handleDropOnTime(e: React.DragEvent, newTime: string) {
+    e.preventDefault();
+    setDropTarget(null);
+    const aptId = e.dataTransfer.getData("text/plain");
+    if (!aptId) return;
+    const apt = appointments.find(a => a.id === aptId) || weekAppointments.find(a => a.id === aptId);
+    if (!apt || apt.start_time?.slice(0, 5) === newTime) return;
+    const { error } = await updateAppointment(aptId, { start_time: newTime });
+    if (error) { toast.error(error); }
+    else { toast.success(`Cita movida a ${newTime}`); setSelectedAppointment(null); refetch(); refetchWeek(); }
+  }
+
+  async function handleDropOnDay(e: React.DragEvent, newDate: string) {
+    e.preventDefault();
+    setDropTarget(null);
+    const aptId = e.dataTransfer.getData("text/plain");
+    if (!aptId) return;
+    const apt = weekAppointments.find(a => a.id === aptId);
+    if (!apt || apt.date === newDate) return;
+    const { error } = await updateAppointment(aptId, { date: newDate });
+    if (error) { toast.error(error); }
+    else { toast.success(`Cita movida a ${new Date(newDate + "T00:00").toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}`); setSelectedAppointment(null); refetch(); refetchWeek(); }
+  }
+
   function goToDay(offset: number) { const d = new Date(currentDate); d.setDate(d.getDate() + (view === "week" ? offset * 7 : offset)); setCurrentDate(d); setSelectedAppointment(null); }
   function goToToday() { setCurrentDate(new Date()); setSelectedAppointment(null); }
 
@@ -173,13 +234,18 @@ export function Agenda() {
                       const q = agendaSearch.toLowerCase();
                       return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
                     });
+                    const isDropTarget = dropTarget === `time:${time}`;
                     return (
-                      <div key={time} className="flex border-b border-border last:border-0">
+                      <div key={time} className={`flex border-b border-border last:border-0 transition-colors ${isDropTarget ? "bg-primary/10" : ""}`}
+                        onDragOver={e => handleDragOver(e, `time:${time}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnTime(e, time)}>
                         <div className="w-16 py-3 text-[0.75rem] text-foreground-secondary font-medium">{time}</div>
                         <div className="flex-1 py-2 relative">
                           {slotApts.map((apt) => (
-                            <motion.div key={apt.id} whileHover={{ scale: 1.01 }} onClick={() => setSelectedAppointment(apt)}
-                              className={`mb-2 p-3 rounded-[10px] cursor-pointer border-l-4 transition-all duration-150
+                            <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
+                              onClick={() => setSelectedAppointment(apt)}
+                              className={`mb-2 p-3 rounded-[10px] border-l-4 transition-all duration-150
+                                ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
+                                ${draggedAptId === apt.id ? "opacity-50" : ""}
                                 ${apt.status === "confirmed" && "bg-success/10 border-success"}
                                 ${apt.status === "pending" && "bg-warning/10 border-warning"}
                                 ${apt.status === "in_transit" && "bg-warning/10 border-warning"}
@@ -193,9 +259,9 @@ export function Agenda() {
                                 </div>
                                 <Badge variant={STATUS_COLORS[apt.status]}>{STATUS_LABELS[apt.status]}</Badge>
                               </div>
-                            </motion.div>
+                            </div>
                           ))}
-                          {slotApts.length === 0 && <div className="h-12"></div>}
+                          {slotApts.length === 0 && <div className={`h-12 rounded-[8px] ${isDropTarget ? "border-2 border-dashed border-primary" : ""}`}></div>}
                         </div>
                       </div>
                     );
@@ -236,11 +302,17 @@ export function Agenda() {
                         return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
                       });
                     const isToday = dateStr === formatDate(new Date());
+                    const isDayDropTarget = dropTarget === `date:${dateStr}`;
                     return (
-                      <div key={i} className={`border-r border-border last:border-r-0 p-1.5 space-y-1 ${isToday ? "bg-primary/5" : ""}`}>
+                      <div key={i} className={`border-r border-border last:border-r-0 p-1.5 space-y-1 transition-colors
+                        ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15 ring-2 ring-inset ring-primary/30" : ""}`}
+                        onDragOver={e => handleDragOver(e, `date:${dateStr}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnDay(e, dateStr)}>
                         {dayApts.length > 0 ? dayApts.map(apt => (
-                          <motion.div key={apt.id} whileHover={{ scale: 1.02 }} onClick={() => setSelectedAppointment(apt)}
-                            className={`p-2 rounded-[8px] cursor-pointer border-l-3 transition-all duration-150 text-left
+                          <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
+                            onClick={() => setSelectedAppointment(apt)}
+                            className={`p-2 rounded-[8px] border-l-3 transition-all duration-150 text-left
+                              ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
+                              ${draggedAptId === apt.id ? "opacity-50" : ""}
                               ${apt.status === "confirmed" && "bg-success/10 border-success"}
                               ${apt.status === "pending" && "bg-warning/10 border-warning"}
                               ${apt.status === "in_transit" && "bg-warning/10 border-warning"}
@@ -250,9 +322,14 @@ export function Agenda() {
                             <p className="text-[0.6875rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
                             <p className="text-[0.625rem] text-foreground-secondary">{apt.start_time?.slice(0, 5)}</p>
                             <p className="text-[0.5625rem] text-foreground-secondary truncate">{apt.type}</p>
-                          </motion.div>
+                          </div>
                         )) : (
-                          <p className="text-[0.625rem] text-foreground-secondary text-center pt-4 opacity-50">Sin citas</p>
+                          <p className={`text-[0.625rem] text-foreground-secondary text-center pt-4 opacity-50 ${isDayDropTarget ? "hidden" : ""}`}>Sin citas</p>
+                        )}
+                        {isDayDropTarget && dayApts.length === 0 && (
+                          <div className="border-2 border-dashed border-primary/40 rounded-[8px] p-3 text-center">
+                            <p className="text-[0.625rem] text-primary font-medium">Soltar aquí</p>
+                          </div>
                         )}
                       </div>
                     );
