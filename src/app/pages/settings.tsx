@@ -435,34 +435,15 @@ export function Settings() {
                   <CardTitle>Métodos de Pago</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center justify-between p-4 bg-surface-alt rounded-[10px]">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-[8px] bg-primary/10 flex items-center justify-center">
-                          <CreditCard className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-foreground text-[0.875rem]">
-                            •••• •••• •••• 4242
-                          </p>
-                          <p className="text-[0.75rem] text-foreground-secondary">
-                            Vence 12/2027
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[0.75rem] font-medium text-success bg-success/10 px-2 py-1 rounded-[999px]">
-                          Por defecto
-                        </span>
-                        <Button variant="ghost" size="sm" onClick={() => toast.info("Próximamente: Editar método de pago")}>
-                          Editar
-                        </Button>
-                      </div>
-                    </div>
+                  <div className="text-center py-8">
+                    <CreditCard className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
+                    <p className="text-[0.875rem] text-foreground-secondary mb-1">
+                      No hay métodos de pago configurados
+                    </p>
+                    <p className="text-[0.75rem] text-foreground-secondary mb-4">
+                      Los cobros se registran manualmente desde Facturación
+                    </p>
                   </div>
-                  <Button variant="tertiary" onClick={() => toast.info("Próximamente: Agregar método de pago")}>
-                    Agregar Método de Pago
-                  </Button>
                 </CardContent>
               </Card>
             </>

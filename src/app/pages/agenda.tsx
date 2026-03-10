@@ -13,22 +13,10 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useAppointments, useAppointmentMutations } from "../hooks/use-appointments";
 import { usePatients } from "../hooks/use-patients";
-import { useClinicUsers } from "../hooks/use-clinic";
+import { useClinicUsers, useClinicSchedules } from "../hooks/use-clinic";
 import type { AppointmentWithRelations } from "../lib/types";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
-
-const timeSlots = [
-  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-  "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-  "16:00", "16:30", "17:00", "17:30", "18:00", "18:30"
-];
-
-const statusColors: Record<string, "success" | "warning" | "default" | "danger"> = {
-  confirmed: "success", pending: "warning", in_transit: "warning", in_progress: "success", completed: "default", cancelled: "danger",
-};
-const statusLabels: Record<string, string> = {
-  confirmed: "Confirmada", pending: "Por confirmar", in_transit: "En camino", in_progress: "En consulta", completed: "Completada", cancelled: "Cancelada",
-};
+import { APPOINTMENT_TYPES, DURATION_OPTIONS, STATUS_COLORS, STATUS_LABELS, generateTimeSlots } from "../lib/constants";
 
 function formatDate(date: Date): string { return date.toISOString().split("T")[0]; }
 function formatDisplayDate(date: Date): string {
@@ -40,6 +28,13 @@ export function Agenda() {
   const { appointments, loading, refetch } = useAppointments(formatDate(currentDate));
   const { createAppointment, updateAppointment, cancelAppointment } = useAppointmentMutations();
   const { patients } = usePatients();
+  const { schedules } = useClinicSchedules();
+
+  // Dynamic time slots from clinic schedule for current day of week (0=Sun..6=Sat → DB: 0=Mon..5=Sat)
+  const dayOfWeek = currentDate.getDay(); // 0=Sun, 1=Mon...6=Sat
+  const dbDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert to 0=Mon...6=Sun
+  const todaySchedule = schedules.find(s => s.day_of_week === dbDayOfWeek && s.is_active);
+  const timeSlots = generateTimeSlots(todaySchedule?.start_time?.slice(0, 5), todaySchedule?.end_time?.slice(0, 5));
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | null>(null);
   const [view, setView] = useState<"day" | "week">("day");
 
@@ -173,7 +168,7 @@ export function Agenda() {
                                   <p className="font-semibold text-foreground text-[0.875rem] truncate">{apt.patient?.full_name || "-"}</p>
                                   <p className="text-[0.75rem] text-foreground-secondary mt-0.5">{apt.type} • Dr. {apt.doctor?.full_name || "-"}</p>
                                 </div>
-                                <Badge variant={statusColors[apt.status]}>{statusLabels[apt.status]}</Badge>
+                                <Badge variant={STATUS_COLORS[apt.status]}>{STATUS_LABELS[apt.status]}</Badge>
                               </div>
                             </motion.div>
                           ))}
@@ -204,7 +199,7 @@ export function Agenda() {
                       <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><Clock className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Horario</p><p className="font-semibold text-foreground">{selectedAppointment.start_time?.slice(0, 5)} ({selectedAppointment.duration_minutes} min)</p></div></div>
                       <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><CalendarIcon className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Tipo</p><p className="font-semibold text-foreground">{selectedAppointment.type}</p></div></div>
                     </div>
-                    <div className="pt-3 border-t border-border"><Badge variant={statusColors[selectedAppointment.status]} className="mb-4">{statusLabels[selectedAppointment.status]}</Badge></div>
+                    <div className="pt-3 border-t border-border"><Badge variant={STATUS_COLORS[selectedAppointment.status]} className="mb-4">{STATUS_LABELS[selectedAppointment.status]}</Badge></div>
                     <div className="space-y-2">
                       <Link to={`/historia-clinica/${selectedAppointment.patient_id}`}><Button variant="primary" className="w-full">Ver Historia Clínica</Button></Link>
                       <Button variant="tertiary" className="w-full" onClick={openEditModal}>Editar Cita</Button>
@@ -251,11 +246,11 @@ export function Agenda() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Tipo de Cita *</label>
               <select className={inputClass} value={aptForm.type} onChange={e => setAptForm({ ...aptForm, type: e.target.value })}>
-                {["Consulta General","Primera Vez","Control","Seguimiento","Urgencia","Limpieza","Ortodoncia","Endodoncia"].map(t => <option key={t} value={t}>{t}</option>)}
+                {APPOINTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select></div>
             <div><label className={labelClass}>Duración</label>
               <select className={inputClass} value={aptForm.duration_minutes} onChange={e => setAptForm({ ...aptForm, duration_minutes: e.target.value })}>
-                {[["15","15 min"],["30","30 min"],["45","45 min"],["60","60 min"],["90","90 min"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select></div>
           </div>
           <div><label className={labelClass}>Notas</label><textarea className={textareaClass} placeholder="Notas adicionales..." value={aptForm.notes} onChange={e => setAptForm({ ...aptForm, notes: e.target.value })} /></div>
@@ -283,7 +278,7 @@ export function Agenda() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Tipo de Cita</label>
               <select className={inputClass} value={editForm.type} onChange={e => setEditForm({ ...editForm, type: e.target.value })}>
-                {["Consulta General","Primera Vez","Control","Seguimiento","Urgencia","Limpieza","Ortodoncia","Endodoncia"].map(t => <option key={t} value={t}>{t}</option>)}
+                {APPOINTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select></div>
             <div><label className={labelClass}>Estado</label>
               <select className={inputClass} value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
@@ -292,7 +287,7 @@ export function Agenda() {
           </div>
           <div><label className={labelClass}>Duración</label>
             <select className={inputClass} value={editForm.duration_minutes} onChange={e => setEditForm({ ...editForm, duration_minutes: e.target.value })}>
-              {[["15","15 min"],["30","30 min"],["45","45 min"],["60","60 min"],["90","90 min"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+              {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
             </select></div>
           <div><label className={labelClass}>Notas</label><textarea className={textareaClass} placeholder="Notas..." value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })} /></div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">

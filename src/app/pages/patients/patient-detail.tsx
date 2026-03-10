@@ -14,13 +14,7 @@ import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use
 import { useMedicalHistory, useConsultationMutations } from "../../hooks/use-medical-history";
 import { useClinicUsers } from "../../hooks/use-clinic";
 import { inputClass, labelClass, textareaClass } from "../../components/modals/form-classes";
-
-const statusColors: Record<string, "success" | "warning" | "default" | "danger"> = {
-  confirmed: "success", pending: "warning", in_transit: "warning", in_progress: "success", completed: "default", cancelled: "danger",
-};
-const statusLabels: Record<string, string> = {
-  confirmed: "Confirmada", pending: "Por confirmar", in_transit: "En camino", in_progress: "En consulta", completed: "Completada", cancelled: "Cancelada",
-};
+import { APPOINTMENT_TYPES, DURATION_OPTIONS, BLOOD_TYPES, STATUS_COLORS, STATUS_LABELS } from "../../lib/constants";
 
 export function PatientDetail() {
   const { id } = useParams();
@@ -206,7 +200,7 @@ export function PatientDetail() {
                       <p className="text-[0.75rem] text-foreground-secondary">{new Date(apt.date).toLocaleDateString('es-ES')} • {apt.start_time?.slice(0, 5)}</p>
                     </div>
                   </div>
-                  <Badge variant={statusColors[apt.status] || "default"}>{statusLabels[apt.status] || apt.status}</Badge>
+                  <Badge variant={STATUS_COLORS[apt.status] || "default"}>{STATUS_LABELS[apt.status] || apt.status}</Badge>
                 </div>
               ))}
             </div>
@@ -252,7 +246,7 @@ export function PatientDetail() {
             <div><label className={labelClass}>Fecha de Nacimiento</label><input type="date" className={inputClass} value={editForm.birthdate} onChange={e => setEditForm({ ...editForm, birthdate: e.target.value })} /></div>
             <div><label className={labelClass}>Grupo Sanguíneo</label>
               <select className={inputClass} value={editForm.blood_type} onChange={e => setEditForm({ ...editForm, blood_type: e.target.value })}>
-                <option value="">Seleccionar</option>{["O+","O-","A+","A-","B+","B-","AB+","AB-"].map(t => <option key={t} value={t}>{t}</option>)}
+                <option value="">Seleccionar</option>{BLOOD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select></div>
           </div>
           <div><label className={labelClass}>Alergias (separadas por coma)</label><input type="text" className={inputClass} value={editForm.allergies} onChange={e => setEditForm({ ...editForm, allergies: e.target.value })} /></div>
@@ -289,11 +283,11 @@ export function PatientDetail() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Tipo de Cita *</label>
               <select className={inputClass} value={aptForm.type} onChange={e => setAptForm({ ...aptForm, type: e.target.value })}>
-                {["Consulta General","Primera Vez","Control","Seguimiento","Urgencia","Limpieza","Ortodoncia","Endodoncia"].map(t => <option key={t} value={t}>{t}</option>)}
+                {APPOINTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select></div>
             <div><label className={labelClass}>Duración</label>
               <select className={inputClass} value={aptForm.duration_minutes} onChange={e => setAptForm({ ...aptForm, duration_minutes: e.target.value })}>
-                {[["15","15 min"],["30","30 min"],["45","45 min"],["60","60 min"],["90","90 min"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select></div>
           </div>
           <div><label className={labelClass}>Notas</label><textarea className={textareaClass} placeholder="Notas adicionales..." value={aptForm.notes} onChange={e => setAptForm({ ...aptForm, notes: e.target.value })} /></div>

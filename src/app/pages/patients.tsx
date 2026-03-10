@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { usePatients, usePatientMutations } from "../hooks/use-patients";
 import { inputClass, labelClass } from "../components/modals/form-classes";
+import { BLOOD_TYPES } from "../lib/constants";
 
 export function Patients() {
   const [searchParams] = useSearchParams();
@@ -175,7 +176,7 @@ export function Patients() {
               <label className={labelClass}>Grupo Sanguíneo</label>
               <select className={inputClass} value={form.blood_type} onChange={e => setForm({ ...form, blood_type: e.target.value })}>
                 <option value="">Seleccionar</option>
-                {["O+","O-","A+","A-","B+","B-","AB+","AB-"].map(t => <option key={t} value={t}>{t}</option>)}
+                {BLOOD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
           </div>

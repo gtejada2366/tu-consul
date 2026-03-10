@@ -9,6 +9,7 @@ import { Plus, Search, Download, DollarSign, TrendingUp, Clock, CheckCircle, XCi
 import { useInvoices, useInvoiceMutations } from "../hooks/use-invoices";
 import { usePatients } from "../hooks/use-patients";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
+import { BILLING_SERVICES, PAYMENT_METHODS } from "../lib/constants";
 
 const statusConfig = {
   paid: { label: "Pagada", variant: "success" as const, icon: CheckCircle },
@@ -220,7 +221,7 @@ export function Billing() {
             <div><label className={labelClass}>Servicio *</label>
               <select className={inputClass} value={invoiceForm.service} onChange={e => setInvoiceForm({ ...invoiceForm, service: e.target.value })}>
                 <option value="">Seleccionar</option>
-                {["Consulta General","Primera Consulta","Limpieza Dental","Tratamiento de Conducto","Corona Dental","Extracción","Ortodoncia","Endodoncia","Blanqueamiento","Radiografía"].map(s => <option key={s} value={s}>{s}</option>)}
+                {BILLING_SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
@@ -239,7 +240,7 @@ export function Billing() {
           <div>
             <label className={labelClass}>Método de Pago</label>
             <select className={inputClass} value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-              {["Efectivo","Tarjeta de Crédito","Tarjeta de Débito","Transferencia","Mercado Pago"].map(m => <option key={m} value={m}>{m}</option>)}
+              {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">

@@ -13,13 +13,7 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { useDashboard } from "../hooks/use-dashboard";
-
-const statusColors: Record<string, "success" | "warning" | "default" | "danger"> = {
-  confirmed: "success", pending: "warning", in_transit: "warning", in_progress: "success", completed: "default", cancelled: "danger",
-};
-const statusLabels: Record<string, string> = {
-  confirmed: "Confirmada", pending: "Por confirmar", in_transit: "En camino", in_progress: "En consulta", completed: "Completada", cancelled: "Cancelada",
-};
+import { STATUS_COLORS, STATUS_LABELS } from "../lib/constants";
 
 export function Dashboard() {
   const { stats, todayAppointments, weeklyData, loading, canSeeRevenue } = useDashboard();
@@ -141,8 +135,8 @@ export function Dashboard() {
                         <p className="font-semibold text-foreground text-[0.875rem]">
                           {appointment.patient?.full_name || "-"}
                         </p>
-                        <Badge variant={statusColors[appointment.status] || "default"}>
-                          {statusLabels[appointment.status] || appointment.status}
+                        <Badge variant={STATUS_COLORS[appointment.status] || "default"}>
+                          {STATUS_LABELS[appointment.status] || appointment.status}
                         </Badge>
                       </div>
                       <p className="text-[0.75rem] text-foreground-secondary">
