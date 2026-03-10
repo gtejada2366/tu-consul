@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useAppointments, useAppointmentMutations } from "../hooks/use-appointments";
 import { usePatients } from "../hooks/use-patients";
+import { useClinicUsers } from "../hooks/use-clinic";
 import type { AppointmentWithRelations } from "../lib/types";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
 
@@ -23,10 +24,10 @@ const timeSlots = [
 ];
 
 const statusColors: Record<string, "success" | "warning" | "default" | "danger"> = {
-  confirmed: "success", pending: "warning", completed: "default", cancelled: "danger",
+  confirmed: "success", pending: "warning", in_transit: "warning", in_progress: "success", completed: "default", cancelled: "danger",
 };
 const statusLabels: Record<string, string> = {
-  confirmed: "Confirmada", pending: "Pendiente", completed: "Completada", cancelled: "Cancelada",
+  confirmed: "Confirmada", pending: "Por confirmar", in_transit: "En camino", in_progress: "En consulta", completed: "Completada", cancelled: "Cancelada",
 };
 
 function formatDate(date: Date): string { return date.toISOString().split("T")[0]; }
@@ -47,14 +48,16 @@ export function Agenda() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [agendaSearch, setAgendaSearch] = useState("");
-  const [aptForm, setAptForm] = useState({ patient_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
-  const [editForm, setEditForm] = useState({ date: "", start_time: "", duration_minutes: "", type: "", status: "", notes: "" });
+  const { users: clinicUsers } = useClinicUsers();
+  const doctors = clinicUsers.filter(u => u.role === "doctor" || u.role === "admin");
+  const [aptForm, setAptForm] = useState({ patient_id: "", doctor_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
+  const [editForm, setEditForm] = useState({ date: "", start_time: "", duration_minutes: "", type: "", status: "", notes: "", doctor_id: "" });
 
   function goToDay(offset: number) { const d = new Date(currentDate); d.setDate(d.getDate() + offset); setCurrentDate(d); setSelectedAppointment(null); }
   function goToToday() { setCurrentDate(new Date()); setSelectedAppointment(null); }
 
   function openCreateModal() {
-    setAptForm({ patient_id: "", date: formatDate(currentDate), start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
+    setAptForm({ patient_id: "", doctor_id: "", date: formatDate(currentDate), start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
     setShowCreateModal(true);
   }
 
@@ -64,6 +67,7 @@ export function Agenda() {
       date: selectedAppointment.date, start_time: selectedAppointment.start_time?.slice(0, 5) || "",
       duration_minutes: String(selectedAppointment.duration_minutes), type: selectedAppointment.type,
       status: selectedAppointment.status, notes: selectedAppointment.notes || "",
+      doctor_id: selectedAppointment.doctor_id || "",
     });
     setShowEditModal(true);
   }
@@ -73,7 +77,7 @@ export function Agenda() {
     if (!aptForm.patient_id || !aptForm.type) { toast.error("Paciente y tipo son obligatorios"); return; }
     setSaving(true);
     const { error } = await createAppointment({
-      patient_id: aptForm.patient_id, date: aptForm.date, start_time: aptForm.start_time,
+      patient_id: aptForm.patient_id, doctor_id: aptForm.doctor_id || undefined, date: aptForm.date, start_time: aptForm.start_time,
       duration_minutes: parseInt(aptForm.duration_minutes), type: aptForm.type,
       notes: aptForm.notes || undefined,
     });
@@ -90,6 +94,7 @@ export function Agenda() {
       date: editForm.date, start_time: editForm.start_time,
       duration_minutes: parseInt(editForm.duration_minutes), type: editForm.type,
       status: editForm.status, notes: editForm.notes || null,
+      doctor_id: editForm.doctor_id || undefined,
     });
     setSaving(false);
     if (error) { toast.error(error); }
@@ -159,12 +164,14 @@ export function Agenda() {
                               className={`mb-2 p-3 rounded-[10px] cursor-pointer border-l-4 transition-all duration-150
                                 ${apt.status === "confirmed" && "bg-success/10 border-success"}
                                 ${apt.status === "pending" && "bg-warning/10 border-warning"}
+                                ${apt.status === "in_transit" && "bg-warning/10 border-warning"}
+                                ${apt.status === "in_progress" && "bg-success/10 border-success"}
                                 ${apt.status === "completed" && "bg-primary/10 border-primary"}
                                 ${apt.status === "cancelled" && "bg-danger/10 border-danger"}`}>
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
                                   <p className="font-semibold text-foreground text-[0.875rem] truncate">{apt.patient?.full_name || "-"}</p>
-                                  <p className="text-[0.75rem] text-foreground-secondary mt-0.5">{apt.type}</p>
+                                  <p className="text-[0.75rem] text-foreground-secondary mt-0.5">{apt.type} • Dr. {apt.doctor?.full_name || "-"}</p>
                                 </div>
                                 <Badge variant={statusColors[apt.status]}>{statusLabels[apt.status]}</Badge>
                               </div>
@@ -193,6 +200,7 @@ export function Agenda() {
                   <CardContent className="space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Paciente</p><p className="font-semibold text-foreground">{selectedAppointment.patient?.full_name || "-"}</p></div></div>
+                      <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Doctor</p><p className="font-semibold text-foreground">{selectedAppointment.doctor?.full_name || "-"}</p></div></div>
                       <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><Clock className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Horario</p><p className="font-semibold text-foreground">{selectedAppointment.start_time?.slice(0, 5)} ({selectedAppointment.duration_minutes} min)</p></div></div>
                       <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><CalendarIcon className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Tipo</p><p className="font-semibold text-foreground">{selectedAppointment.type}</p></div></div>
                     </div>
@@ -229,6 +237,13 @@ export function Agenda() {
               {patients.filter(p => p.status === "active").map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
             </select>
           </div>
+          <div>
+            <label className={labelClass}>Doctor / Especialista</label>
+            <select className={inputClass} value={aptForm.doctor_id} onChange={e => setAptForm({ ...aptForm, doctor_id: e.target.value })}>
+              <option value="">Yo mismo (por defecto)</option>
+              {doctors.map(d => <option key={d.id} value={d.id}>{d.full_name}{d.specialty ? ` — ${d.specialty}` : ""}</option>)}
+            </select>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Fecha *</label><input type="date" className={inputClass} value={aptForm.date} onChange={e => setAptForm({ ...aptForm, date: e.target.value })} /></div>
             <div><label className={labelClass}>Hora *</label><input type="time" className={inputClass} value={aptForm.start_time} onChange={e => setAptForm({ ...aptForm, start_time: e.target.value })} /></div>
@@ -254,6 +269,13 @@ export function Agenda() {
       {/* Edit Appointment Modal */}
       <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Cita" size="md">
         <form onSubmit={handleEditApt} className="space-y-4">
+          <div>
+            <label className={labelClass}>Doctor / Especialista</label>
+            <select className={inputClass} value={editForm.doctor_id} onChange={e => setEditForm({ ...editForm, doctor_id: e.target.value })}>
+              <option value="">Sin cambio</option>
+              {doctors.map(d => <option key={d.id} value={d.id}>{d.full_name}{d.specialty ? ` — ${d.specialty}` : ""}</option>)}
+            </select>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Fecha</label><input type="date" className={inputClass} value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} /></div>
             <div><label className={labelClass}>Hora</label><input type="time" className={inputClass} value={editForm.start_time} onChange={e => setEditForm({ ...editForm, start_time: e.target.value })} /></div>
@@ -265,7 +287,7 @@ export function Agenda() {
               </select></div>
             <div><label className={labelClass}>Estado</label>
               <select className={inputClass} value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
-                <option value="pending">Pendiente</option><option value="confirmed">Confirmada</option><option value="completed">Completada</option><option value="cancelled">Cancelada</option>
+                <option value="pending">Por confirmar</option><option value="confirmed">Confirmada</option><option value="in_transit">En camino</option><option value="in_progress">En consulta</option><option value="completed">Completada</option><option value="cancelled">Cancelada</option>
               </select></div>
           </div>
           <div><label className={labelClass}>Duración</label>

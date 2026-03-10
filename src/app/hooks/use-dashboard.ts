@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/auth-context";
-import type { AppointmentWithRelations, DashboardStats } from "../lib/types";
+import type { AppointmentWithRelations } from "../lib/types";
+
+interface DashboardComputedStats {
+  appointments_today: number;
+  occupancy_pct: number;
+  patients_attended: number;
+  revenue_today: number;
+}
 
 interface WeeklyData {
   day: string;
@@ -9,11 +16,11 @@ interface WeeklyData {
 }
 
 export function useDashboard() {
-  const { clinic } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
+  const { clinic, user } = useAuth();
+  const [stats, setStats] = useState<DashboardComputedStats>({
     appointments_today: 0,
     occupancy_pct: 0,
-    new_patients_month: 0,
+    patients_attended: 0,
     revenue_today: 0,
   });
   const [todayAppointments, setTodayAppointments] = useState<AppointmentWithRelations[]>([]);
@@ -27,31 +34,59 @@ export function useDashboard() {
       setLoading(true);
       const today = new Date().toISOString().split("T")[0];
 
-      // Fetch today's appointments
+      // Fetch today's appointments (increased limit to 10)
       const { data: todayAppts } = await supabase
         .from("appointments")
         .select("*, patient:patients(full_name), doctor:users(full_name)")
         .eq("clinic_id", clinic!.id)
         .eq("date", today)
+        .neq("status", "cancelled")
         .order("start_time")
-        .limit(5);
+        .limit(10);
 
       if (todayAppts) {
         setTodayAppointments(todayAppts as unknown as AppointmentWithRelations[]);
       }
 
-      // Fetch stats via RPC
-      try {
-        const { data: statsData } = await supabase.rpc("get_dashboard_stats", {
-          p_clinic_id: clinic!.id,
-        } as Record<string, unknown>);
+      // Compute stats locally instead of relying on RPC
 
-        if (statsData) {
-          setStats(statsData as unknown as DashboardStats);
-        }
-      } catch {
-        // RPC may not be available yet, use defaults
-      }
+      // Total citas hoy (no canceladas)
+      const { count: totalTodayCount } = await supabase
+        .from("appointments")
+        .select("*", { count: "exact", head: true })
+        .eq("clinic_id", clinic!.id)
+        .eq("date", today)
+        .neq("status", "cancelled");
+
+      // Pacientes atendidos hoy (completed + in_progress)
+      const { count: attendedCount } = await supabase
+        .from("appointments")
+        .select("*", { count: "exact", head: true })
+        .eq("clinic_id", clinic!.id)
+        .eq("date", today)
+        .in("status", ["completed", "in_progress"]);
+
+      // Occupancy: attended + in_progress vs total non-cancelled today
+      const totalToday = totalTodayCount || 0;
+      const attended = attendedCount || 0;
+      const occupancy = totalToday > 0 ? Math.round((attended / totalToday) * 100) : 0;
+
+      // Revenue today
+      const { data: invoicesToday } = await supabase
+        .from("invoices")
+        .select("amount")
+        .eq("clinic_id", clinic!.id)
+        .eq("date", today)
+        .eq("status", "paid");
+
+      const revenue = invoicesToday ? invoicesToday.reduce((sum, inv) => sum + ((inv as Record<string, unknown>).amount as number || 0), 0) : 0;
+
+      setStats({
+        appointments_today: totalToday,
+        occupancy_pct: occupancy,
+        patients_attended: attended,
+        revenue_today: revenue,
+      });
 
       // Fetch weekly data for chart
       const weekStart = new Date();
@@ -81,5 +116,7 @@ export function useDashboard() {
     fetchDashboard();
   }, [clinic]);
 
-  return { stats, todayAppointments, weeklyData, loading };
+  const canSeeRevenue = user?.role === "admin";
+
+  return { stats, todayAppointments, weeklyData, loading, canSeeRevenue };
 }

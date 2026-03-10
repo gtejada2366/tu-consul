@@ -132,7 +132,7 @@ export interface Appointment {
   start_time: string;
   duration_minutes: number;
   type: string;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
+  status: "pending" | "confirmed" | "in_transit" | "in_progress" | "completed" | "cancelled";
   notes: string | null;
   created_at: string;
   updated_at: string;

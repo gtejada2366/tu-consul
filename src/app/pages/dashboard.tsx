@@ -9,14 +9,20 @@ import {
   TrendingUp,
   DollarSign,
   Clock,
-  AlertCircle,
   Plus
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { useDashboard } from "../hooks/use-dashboard";
 
+const statusColors: Record<string, "success" | "warning" | "default" | "danger"> = {
+  confirmed: "success", pending: "warning", in_transit: "warning", in_progress: "success", completed: "default", cancelled: "danger",
+};
+const statusLabels: Record<string, string> = {
+  confirmed: "Confirmada", pending: "Por confirmar", in_transit: "En camino", in_progress: "En consulta", completed: "Completada", cancelled: "Cancelada",
+};
+
 export function Dashboard() {
-  const { stats, todayAppointments, weeklyData, loading } = useDashboard();
+  const { stats, todayAppointments, weeklyData, loading, canSeeRevenue } = useDashboard();
 
   const today = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
@@ -41,19 +47,19 @@ export function Dashboard() {
       bgColor: "bg-success/10"
     },
     {
-      title: "Pacientes Nuevos",
-      value: String(stats.new_patients_month),
+      title: "Pacientes Atendidos",
+      value: String(stats.patients_attended),
       icon: Users,
       color: "text-warning",
       bgColor: "bg-warning/10"
     },
-    {
+    ...(canSeeRevenue ? [{
       title: "Ingresos del Día",
       value: `$${stats.revenue_today.toLocaleString()}`,
       icon: DollarSign,
       color: "text-primary",
       bgColor: "bg-primary/10"
-    },
+    }] : []),
   ];
 
   const chartData = weeklyData.map(d => ({ day: d.day, citas: d.appointments }));
@@ -83,7 +89,7 @@ export function Dashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${canSeeRevenue ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}>
         {kpiData.map((kpi, index) => (
           <Card key={index} className="hover:shadow-md transition-shadow duration-150">
             <CardContent className="p-5">
@@ -135,8 +141,8 @@ export function Dashboard() {
                         <p className="font-semibold text-foreground text-[0.875rem]">
                           {appointment.patient?.full_name || "-"}
                         </p>
-                        <Badge variant={appointment.status === "confirmed" ? "success" : "warning"}>
-                          {appointment.status === "confirmed" ? "Confirmada" : "Pendiente"}
+                        <Badge variant={statusColors[appointment.status] || "default"}>
+                          {statusLabels[appointment.status] || appointment.status}
                         </Badge>
                       </div>
                       <p className="text-[0.75rem] text-foreground-secondary">

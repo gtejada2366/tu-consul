@@ -12,7 +12,15 @@ import {
 import { usePatient, usePatientMutations } from "../../hooks/use-patients";
 import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use-appointments";
 import { useMedicalHistory, useConsultationMutations } from "../../hooks/use-medical-history";
+import { useClinicUsers } from "../../hooks/use-clinic";
 import { inputClass, labelClass, textareaClass } from "../../components/modals/form-classes";
+
+const statusColors: Record<string, "success" | "warning" | "default" | "danger"> = {
+  confirmed: "success", pending: "warning", in_transit: "warning", in_progress: "success", completed: "default", cancelled: "danger",
+};
+const statusLabels: Record<string, string> = {
+  confirmed: "Confirmada", pending: "Por confirmar", in_transit: "En camino", in_progress: "En consulta", completed: "Completada", cancelled: "Cancelada",
+};
 
 export function PatientDetail() {
   const { id } = useParams();
@@ -23,6 +31,8 @@ export function PatientDetail() {
   const { updatePatient, deletePatient } = usePatientMutations();
   const { createAppointment } = useAppointmentMutations();
   const { createConsultation } = useConsultationMutations();
+  const { users: clinicUsers } = useClinicUsers();
+  const doctors = clinicUsers.filter(u => u.role === "doctor" || u.role === "admin");
 
   const recentHistory = consultations.filter(c => c.type === "consulta").slice(0, 3);
 
@@ -33,7 +43,7 @@ export function PatientDetail() {
   const [saving, setSaving] = useState(false);
 
   const [editForm, setEditForm] = useState({ full_name: "", email: "", phone: "", address: "", birthdate: "", blood_type: "", allergies: "" });
-  const [aptForm, setAptForm] = useState({ date: new Date().toISOString().split("T")[0], start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
+  const [aptForm, setAptForm] = useState({ date: new Date().toISOString().split("T")[0], start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "", doctor_id: "" });
   const [conForm, setConForm] = useState({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
 
   function openEditModal() {
@@ -73,7 +83,7 @@ export function PatientDetail() {
     if (!id) return;
     setSaving(true);
     const { error } = await createAppointment({
-      patient_id: id, date: aptForm.date, start_time: aptForm.start_time,
+      patient_id: id, doctor_id: aptForm.doctor_id || undefined, date: aptForm.date, start_time: aptForm.start_time,
       duration_minutes: parseInt(aptForm.duration_minutes), type: aptForm.type,
       notes: aptForm.notes || undefined,
     });
@@ -196,7 +206,7 @@ export function PatientDetail() {
                       <p className="text-[0.75rem] text-foreground-secondary">{new Date(apt.date).toLocaleDateString('es-ES')} • {apt.start_time?.slice(0, 5)}</p>
                     </div>
                   </div>
-                  <Badge variant={apt.status === "confirmed" ? "success" : "warning"}>{apt.status === "confirmed" ? "Confirmada" : "Pendiente"}</Badge>
+                  <Badge variant={statusColors[apt.status] || "default"}>{statusLabels[apt.status] || apt.status}</Badge>
                 </div>
               ))}
             </div>
@@ -265,6 +275,13 @@ export function PatientDetail() {
 
       <Modal open={showAptModal} onClose={() => setShowAptModal(false)} title="Agendar Cita" size="md">
         <form onSubmit={handleCreateApt} className="space-y-4">
+          <div>
+            <label className={labelClass}>Doctor / Especialista</label>
+            <select className={inputClass} value={aptForm.doctor_id} onChange={e => setAptForm({ ...aptForm, doctor_id: e.target.value })}>
+              <option value="">Yo mismo (por defecto)</option>
+              {doctors.map(d => <option key={d.id} value={d.id}>{d.full_name}{d.specialty ? ` — ${d.specialty}` : ""}</option>)}
+            </select>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Fecha *</label><input type="date" className={inputClass} value={aptForm.date} onChange={e => setAptForm({ ...aptForm, date: e.target.value })} /></div>
             <div><label className={labelClass}>Hora *</label><input type="time" className={inputClass} value={aptForm.start_time} onChange={e => setAptForm({ ...aptForm, start_time: e.target.value })} /></div>
