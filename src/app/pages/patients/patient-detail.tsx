@@ -7,14 +7,16 @@ import { Badge } from "../../components/ui/badge";
 import { Loading } from "../../components/ui/loading";
 import { Modal } from "../../components/ui/modal";
 import {
-  ArrowLeft, Mail, Phone, MapPin, Calendar, Clock, FileText, Edit, Trash2, AlertCircle
+  ArrowLeft, Mail, Phone, MapPin, Calendar, Clock, FileText, Edit, Trash2, AlertCircle,
+  DollarSign, Plus, Check
 } from "lucide-react";
 import { usePatient, usePatientMutations } from "../../hooks/use-patients";
 import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use-appointments";
 import { useMedicalHistory, useConsultationMutations } from "../../hooks/use-medical-history";
 import { useClinicUsers } from "../../hooks/use-clinic";
+import { usePotentialTreatments, usePotentialTreatmentMutations } from "../../hooks/use-potential-treatments";
 import { inputClass, labelClass, textareaClass } from "../../components/modals/form-classes";
-import { APPOINTMENT_TYPES, DURATION_OPTIONS, BLOOD_TYPES, STATUS_COLORS, STATUS_LABELS } from "../../lib/constants";
+import { APPOINTMENT_TYPES, DURATION_OPTIONS, BLOOD_TYPES, BILLING_SERVICES, STATUS_COLORS, STATUS_LABELS } from "../../lib/constants";
 
 export function PatientDetail() {
   const { id } = useParams();
@@ -27,6 +29,8 @@ export function PatientDetail() {
   const { createConsultation } = useConsultationMutations();
   const { users: clinicUsers } = useClinicUsers();
   const doctors = clinicUsers.filter(u => u.role === "doctor" || u.role === "admin");
+  const { treatments, pending: pendingTreatments, pendingTotal, refetch: refetchTreatments } = usePotentialTreatments(id);
+  const { createTreatment, markAsCompleted, removeTreatment } = usePotentialTreatmentMutations();
 
   const recentHistory = consultations.filter(c => c.type === "consulta").slice(0, 3);
 
@@ -34,7 +38,9 @@ export function PatientDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAptModal, setShowAptModal] = useState(false);
   const [showConModal, setShowConModal] = useState(false);
+  const [showTreatmentModal, setShowTreatmentModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [treatmentForm, setTreatmentForm] = useState({ service: BILLING_SERVICES[0], estimated_amount: "", notes: "" });
 
   const [editForm, setEditForm] = useState({ full_name: "", email: "", phone: "", address: "", birthdate: "", blood_type: "", allergies: "" });
   const [aptForm, setAptForm] = useState({ date: new Date().toISOString().split("T")[0], start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "", doctor_id: "" });
@@ -103,6 +109,32 @@ export function PatientDetail() {
       setConForm({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
       refetchHistory();
     }
+  }
+
+  async function handleCreateTreatment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !treatmentForm.service || !treatmentForm.estimated_amount) { toast.error("Servicio y monto son obligatorios"); return; }
+    setSaving(true);
+    const { error } = await createTreatment({ patient_id: id, service: treatmentForm.service, estimated_amount: parseFloat(treatmentForm.estimated_amount), notes: treatmentForm.notes.trim() || undefined });
+    setSaving(false);
+    if (error) { toast.error(error); } else {
+      toast.success("Tratamiento potencial agregado"); setShowTreatmentModal(false);
+      setTreatmentForm({ service: BILLING_SERVICES[0], estimated_amount: "", notes: "" }); refetchTreatments();
+    }
+  }
+
+  async function handleCompleteTreatment(treatmentId: string) {
+    setSaving(true);
+    const { error } = await markAsCompleted(treatmentId);
+    setSaving(false);
+    if (error) { toast.error(error); } else { toast.success("Tratamiento completado"); refetchTreatments(); }
+  }
+
+  async function handleRemoveTreatment(treatmentId: string) {
+    setSaving(true);
+    const { error } = await removeTreatment(treatmentId);
+    setSaving(false);
+    if (error) { toast.error(error); } else { toast.success("Tratamiento eliminado"); refetchTreatments(); }
   }
 
   if (loading) return <Loading />;
@@ -205,6 +237,50 @@ export function PatientDetail() {
               ))}
             </div>
           ) : <p className="text-[0.875rem] text-foreground-secondary text-center py-8">No hay citas programadas</p>}
+        </CardContent>
+      </Card>
+
+      {/* Facturación Potencial */}
+      <Card><CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CardTitle>Facturación Potencial</CardTitle>
+            {pendingTreatments.length > 0 && <Badge variant="warning">{pendingTreatments.length} pendiente{pendingTreatments.length !== 1 ? "s" : ""}</Badge>}
+          </div>
+          <Button variant="primary" size="sm" onClick={() => setShowTreatmentModal(true)}><Plus className="w-4 h-4 mr-1" />Agregar</Button>
+        </div>
+      </CardHeader>
+        <CardContent>
+          {pendingTreatments.length > 0 && (
+            <div className="flex items-center gap-2 mb-4 p-3 rounded-[10px] bg-warning/10">
+              <DollarSign className="w-5 h-5 text-warning" />
+              <span className="text-[0.875rem] font-medium text-foreground">Ingreso potencial pendiente: ${pendingTotal.toLocaleString()}</span>
+            </div>
+          )}
+          {treatments.length > 0 ? (
+            <div className="space-y-3">
+              {treatments.map((t) => (
+                <div key={t.id} className={`flex items-center justify-between p-4 rounded-[10px] border border-border ${t.status === "completed" ? "opacity-60" : ""}`}>
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center ${t.status === "completed" ? "bg-success/10" : "bg-warning/10"}`}>
+                      {t.status === "completed" ? <Check className="w-5 h-5 text-success" /> : <DollarSign className="w-5 h-5 text-warning" />}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-[0.875rem]">{t.service}</p>
+                      <p className="text-[0.75rem] text-foreground-secondary">${t.estimated_amount.toLocaleString()}{t.notes ? ` · ${t.notes}` : ""}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={t.status === "completed" ? "success" : "warning"}>{t.status === "completed" ? "Completado" : "Pendiente"}</Badge>
+                    {t.status === "pending" && (<>
+                      <Button variant="ghost" size="sm" onClick={() => handleCompleteTreatment(t.id)} disabled={saving}><Check className="w-4 h-4 text-success" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleRemoveTreatment(t.id)} disabled={saving}><Trash2 className="w-4 h-4 text-danger" /></Button>
+                    </>)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-[0.875rem] text-foreground-secondary text-center py-8">No hay tratamientos potenciales registrados</p>}
         </CardContent>
       </Card>
 
@@ -312,6 +388,23 @@ export function PatientDetail() {
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="tertiary" size="md" onClick={() => setShowConModal(false)} type="button">Cancelar</Button>
             <Button variant="primary" size="md" type="submit" disabled={saving}>{saving ? "Guardando..." : "Registrar"}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={showTreatmentModal} onClose={() => setShowTreatmentModal(false)} title="Agregar Tratamiento Potencial" size="md">
+        <form onSubmit={handleCreateTreatment} className="space-y-4">
+          <div><label className={labelClass}>Servicio *</label>
+            <select className={inputClass} value={treatmentForm.service} onChange={e => setTreatmentForm({ ...treatmentForm, service: e.target.value })}>
+              {BILLING_SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select></div>
+          <div><label className={labelClass}>Monto Estimado ($) *</label>
+            <input type="number" step="0.01" min="0" className={inputClass} placeholder="Ej: 2500.00" value={treatmentForm.estimated_amount} onChange={e => setTreatmentForm({ ...treatmentForm, estimated_amount: e.target.value })} /></div>
+          <div><label className={labelClass}>Notas</label>
+            <textarea className={textareaClass} placeholder="Ej: Molar inferior derecho, caries profunda..." value={treatmentForm.notes} onChange={e => setTreatmentForm({ ...treatmentForm, notes: e.target.value })} /></div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="tertiary" size="md" onClick={() => setShowTreatmentModal(false)} type="button">Cancelar</Button>
+            <Button variant="primary" size="md" type="submit" disabled={saving}>{saving ? "Guardando..." : "Agregar Tratamiento"}</Button>
           </div>
         </form>
       </Modal>

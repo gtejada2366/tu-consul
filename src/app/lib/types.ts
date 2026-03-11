@@ -41,6 +41,11 @@ export interface Database {
         Insert: Omit<LabResult, "id">;
         Update: Partial<Omit<LabResult, "id">>;
       };
+      potential_treatments: {
+        Row: PotentialTreatment;
+        Insert: Omit<PotentialTreatment, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<PotentialTreatment, "id">>;
+      };
       invoices: {
         Row: Invoice;
         Insert: Omit<Invoice, "id" | "created_at" | "updated_at">;
@@ -182,6 +187,18 @@ export interface LabResult {
   test_name: string;
   result: string;
   status: "normal" | "abnormal";
+}
+
+export interface PotentialTreatment {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  service: string;
+  estimated_amount: number;
+  notes: string | null;
+  status: "pending" | "completed" | "cancelled";
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Invoice {
