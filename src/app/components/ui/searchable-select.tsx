@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Search, X, ChevronDown } from "lucide-react";
 import { inputClass } from "../modals/form-classes";
 
@@ -12,13 +13,14 @@ interface SearchableSelectProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  label?: string;
 }
 
 export function SearchableSelect({ options, value, onChange, placeholder = "Buscar..." }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selected = options.find(o => o.value === value);
@@ -27,18 +29,43 @@ export function SearchableSelect({ options, value, onChange, placeholder = "Busc
     ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
     : options;
 
+  const updatePos = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    }
+  }, []);
+
   // Close on click outside
   useEffect(() => {
+    if (!open) return;
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  }, [open]);
+
+  // Reposition on scroll/resize while open
+  useEffect(() => {
+    if (!open) return;
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [open, updatePos]);
 
   function handleOpen() {
+    updatePos();
     setOpen(true);
     setSearch("");
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -57,11 +84,11 @@ export function SearchableSelect({ options, value, onChange, placeholder = "Busc
   }
 
   return (
-    <div ref={ref} className="relative">
+    <>
       {/* Trigger button */}
-      <button type="button" onClick={handleOpen}
+      <button ref={triggerRef} type="button" onClick={handleOpen}
         className={`${inputClass} flex items-center justify-between gap-2 text-left`}>
-        <span className={selected ? "text-foreground" : "text-foreground-secondary"}>
+        <span className={`truncate ${selected ? "text-foreground" : "text-foreground-secondary"}`}>
           {selected ? selected.label : placeholder}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -74,9 +101,11 @@ export function SearchableSelect({ options, value, onChange, placeholder = "Busc
         </div>
       </button>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute z-50 mt-1 w-full bg-surface border border-border rounded-[10px] shadow-lg overflow-hidden">
+      {/* Dropdown via portal — renders outside modal overflow */}
+      {open && createPortal(
+        <div ref={dropdownRef}
+          style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
+          className="bg-surface border border-border rounded-[10px] shadow-lg overflow-hidden">
           {/* Search input */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
             <Search className="w-4 h-4 text-foreground-secondary flex-shrink-0" />
@@ -98,8 +127,9 @@ export function SearchableSelect({ options, value, onChange, placeholder = "Busc
               </p>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
