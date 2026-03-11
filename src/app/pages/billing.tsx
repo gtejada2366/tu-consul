@@ -10,6 +10,7 @@ import { useInvoices, useInvoiceMutations } from "../hooks/use-invoices";
 import { usePatients } from "../hooks/use-patients";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
 import { BILLING_SERVICES, PAYMENT_METHODS } from "../lib/constants";
+import { SearchableSelect } from "../components/ui/searchable-select";
 
 const statusConfig = {
   paid: { label: "Pagada", variant: "success" as const, icon: CheckCircle },
@@ -211,10 +212,12 @@ export function Billing() {
         <form onSubmit={handleCreateInvoice} className="space-y-4">
           <div>
             <label className={labelClass}>Paciente *</label>
-            <select className={inputClass} value={invoiceForm.patient_id} onChange={e => setInvoiceForm({ ...invoiceForm, patient_id: e.target.value })}>
-              <option value="">Seleccionar paciente</option>
-              {patients.filter(p => p.status === "active").map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-            </select>
+            <SearchableSelect
+              placeholder="Seleccionar paciente"
+              options={patients.filter(p => p.status === "active").map(p => ({ value: p.id, label: p.full_name }))}
+              value={invoiceForm.patient_id}
+              onChange={v => setInvoiceForm({ ...invoiceForm, patient_id: v })}
+            />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Monto ($) *</label><input type="number" step="0.01" min="0" className={inputClass} placeholder="0.00" value={invoiceForm.amount} onChange={e => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} /></div>

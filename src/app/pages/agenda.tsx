@@ -16,6 +16,7 @@ import { usePatients } from "../hooks/use-patients";
 import { useClinicUsers, useClinicSchedules } from "../hooks/use-clinic";
 import type { AppointmentWithRelations } from "../lib/types";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
+import { SearchableSelect } from "../components/ui/searchable-select";
 import { APPOINTMENT_TYPES, DURATION_OPTIONS, STATUS_COLORS, STATUS_LABELS, generateTimeSlots, getTypeColor, TYPE_COLORS } from "../lib/constants";
 
 function formatDate(date: Date): string { return date.toISOString().split("T")[0]; }
@@ -397,10 +398,12 @@ export function Agenda() {
         <form onSubmit={handleCreateApt} className="space-y-4">
           <div>
             <label className={labelClass}>Paciente *</label>
-            <select className={inputClass} value={aptForm.patient_id} onChange={e => setAptForm({ ...aptForm, patient_id: e.target.value })}>
-              <option value="">Seleccionar paciente</option>
-              {patients.filter(p => p.status === "active").map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-            </select>
+            <SearchableSelect
+              placeholder="Seleccionar paciente"
+              options={patients.filter(p => p.status === "active").map(p => ({ value: p.id, label: p.full_name }))}
+              value={aptForm.patient_id}
+              onChange={v => setAptForm({ ...aptForm, patient_id: v })}
+            />
           </div>
           <div>
             <label className={labelClass}>Doctor / Especialista</label>
