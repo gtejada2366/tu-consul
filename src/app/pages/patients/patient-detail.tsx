@@ -16,7 +16,7 @@ import { useMedicalHistory, useConsultationMutations } from "../../hooks/use-med
 import { useClinicUsers } from "../../hooks/use-clinic";
 import { usePotentialTreatments, usePotentialTreatmentMutations } from "../../hooks/use-potential-treatments";
 import { inputClass, labelClass, textareaClass } from "../../components/modals/form-classes";
-import { APPOINTMENT_TYPES, DURATION_OPTIONS, BLOOD_TYPES, BILLING_SERVICES, STATUS_COLORS, STATUS_LABELS } from "../../lib/constants";
+import { APPOINTMENT_TYPES, DURATION_OPTIONS, BLOOD_TYPES, BILLING_SERVICES, STATUS_COLORS, STATUS_LABELS, toLocalDateStr, to12h } from "../../lib/constants";
 
 export function PatientDetail() {
   const { id } = useParams();
@@ -43,7 +43,7 @@ export function PatientDetail() {
   const [treatmentForm, setTreatmentForm] = useState({ service: BILLING_SERVICES[0], estimated_amount: "", notes: "" });
 
   const [editForm, setEditForm] = useState({ full_name: "", email: "", phone: "", address: "", birthdate: "", blood_type: "", allergies: "" });
-  const [aptForm, setAptForm] = useState({ date: new Date().toISOString().split("T")[0], start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "", doctor_id: "" });
+  const [aptForm, setAptForm] = useState({ date: toLocalDateStr(new Date()), start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "", doctor_id: "" });
   const [conForm, setConForm] = useState({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
 
   function openEditModal() {
@@ -84,7 +84,7 @@ export function PatientDetail() {
     setSaving(true);
     const { error } = await createAppointment({
       patient_id: id, doctor_id: aptForm.doctor_id || undefined, date: aptForm.date, start_time: aptForm.start_time,
-      duration_minutes: parseInt(aptForm.duration_minutes), type: aptForm.type,
+      duration_minutes: parseInt(aptForm.duration_minutes), type: aptForm.type, status: aptForm.status,
       notes: aptForm.notes || undefined,
     });
     setSaving(false);
@@ -145,13 +145,13 @@ export function PatientDetail() {
         <div className="flex items-center gap-4">
           <Link to="/pacientes"><Button variant="ghost" size="md"><ArrowLeft className="w-4 h-4 mr-2" />Volver</Button></Link>
         </div>
-        <Card><CardContent className="p-6">
-          <div className="flex flex-col items-center justify-center py-12 text-center">
+        <Card>
+          <div className="flex flex-col items-center justify-center p-6 py-12 text-center">
             <AlertCircle className="w-12 h-12 text-foreground-secondary mb-4 opacity-50" />
             <h2 className="text-[1.25rem] font-semibold text-foreground mb-2">Paciente no encontrado</h2>
             <p className="text-[0.875rem] text-foreground-secondary">No se encontró un paciente con el ID especificado.</p>
           </div>
-        </CardContent></Card>
+        </Card>
       </div>
     );
   }
@@ -162,30 +162,32 @@ export function PatientDetail() {
         <Link to="/pacientes"><Button variant="ghost" size="md"><ArrowLeft className="w-4 h-4 mr-2" />Volver</Button></Link>
       </div>
 
-      <Card><CardContent className="p-6">
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl font-semibold text-primary">{patient.full_name.split(' ').map(n => n[0]).join('')}</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-[1.5rem] md:text-[1.75rem] font-semibold text-foreground">{patient.full_name}</h1>
-                <Badge variant={patient.status === "active" ? "success" : "secondary"}>{patient.status === "active" ? "Activo" : "Inactivo"}</Badge>
+      <Card>
+        <div className="p-6">
+          <div className="flex items-start justify-between flex-wrap gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl font-semibold text-primary">{patient.full_name.split(' ').map(n => n[0]).join('')}</span>
               </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-[0.875rem] text-foreground-secondary"><Mail className="w-4 h-4" /><span>{patient.email || "-"}</span></div>
-                <div className="flex items-center gap-2 text-[0.875rem] text-foreground-secondary"><Phone className="w-4 h-4" /><span>{patient.phone || "-"}</span></div>
-                <div className="flex items-center gap-2 text-[0.875rem] text-foreground-secondary"><MapPin className="w-4 h-4" /><span>{patient.address || "-"}</span></div>
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-[1.5rem] md:text-[1.75rem] font-semibold text-foreground">{patient.full_name}</h1>
+                  <Badge variant={patient.status === "active" ? "success" : "secondary"}>{patient.status === "active" ? "Activo" : "Inactivo"}</Badge>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-[0.875rem] text-foreground-secondary"><Mail className="w-4 h-4" /><span>{patient.email || "-"}</span></div>
+                  <div className="flex items-center gap-2 text-[0.875rem] text-foreground-secondary"><Phone className="w-4 h-4" /><span>{patient.phone || "-"}</span></div>
+                  <div className="flex items-center gap-2 text-[0.875rem] text-foreground-secondary"><MapPin className="w-4 h-4" /><span>{patient.address || "-"}</span></div>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="tertiary" size="md" onClick={openEditModal}><Edit className="w-4 h-4 mr-2" />Editar</Button>
-            <Button variant="danger" size="md" onClick={() => setShowDeleteModal(true)}><Trash2 className="w-4 h-4 mr-2" />Eliminar</Button>
+            <div className="flex items-center gap-2">
+              <Button variant="tertiary" size="md" onClick={openEditModal}><Edit className="w-4 h-4 mr-2" />Editar</Button>
+              <Button variant="danger" size="md" onClick={() => setShowDeleteModal(true)}><Trash2 className="w-4 h-4 mr-2" />Eliminar</Button>
+            </div>
           </div>
         </div>
-      </CardContent></Card>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card><CardHeader><CardTitle>Información Médica</CardTitle></CardHeader>
@@ -229,7 +231,7 @@ export function PatientDetail() {
                     <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center"><Calendar className="w-6 h-6 text-primary" /></div>
                     <div>
                       <p className="font-semibold text-foreground text-[0.875rem]">{apt.type}</p>
-                      <p className="text-[0.75rem] text-foreground-secondary">{new Date(apt.date).toLocaleDateString('es-ES')} • {apt.start_time?.slice(0, 5)}</p>
+                      <p className="text-[0.75rem] text-foreground-secondary">{apt.date.split("-").reverse().join("/")} • {to12h(apt.start_time)}</p>
                     </div>
                   </div>
                   <Badge variant={STATUS_COLORS[apt.status] || "default"}>{STATUS_LABELS[apt.status] || apt.status}</Badge>
@@ -254,7 +256,7 @@ export function PatientDetail() {
           {pendingTreatments.length > 0 && (
             <div className="flex items-center gap-2 mb-4 p-3 rounded-[10px] bg-warning/10">
               <DollarSign className="w-5 h-5 text-warning" />
-              <span className="text-[0.875rem] font-medium text-foreground">Ingreso potencial pendiente: ${pendingTotal.toLocaleString()}</span>
+              <span className="text-[0.875rem] font-medium text-foreground">Ingreso potencial pendiente: S/{pendingTotal.toLocaleString()}</span>
             </div>
           )}
           {treatments.length > 0 ? (
@@ -267,7 +269,7 @@ export function PatientDetail() {
                     </div>
                     <div>
                       <p className="font-semibold text-foreground text-[0.875rem]">{t.service}</p>
-                      <p className="text-[0.75rem] text-foreground-secondary">${t.estimated_amount.toLocaleString()}{t.notes ? ` · ${t.notes}` : ""}</p>
+                      <p className="text-[0.75rem] text-foreground-secondary">S/{t.estimated_amount.toLocaleString()}{t.notes ? ` · ${t.notes}` : ""}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -298,7 +300,7 @@ export function PatientDetail() {
                   <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="w-6 h-6 text-primary" /></div>
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
-                      <div><p className="font-semibold text-foreground text-[0.875rem]">{entry.title}</p><p className="text-[0.75rem] text-foreground-secondary">{new Date(entry.date).toLocaleDateString('es-ES')}</p></div>
+                      <div><p className="font-semibold text-foreground text-[0.875rem]">{entry.title}</p><p className="text-[0.75rem] text-foreground-secondary">{entry.date.split("-").reverse().join("/")}</p></div>
                       <Badge variant="default">Completada</Badge>
                     </div>
                     <p className="text-[0.875rem] text-foreground-secondary">{entry.diagnosis || entry.description || "-"}</p>
@@ -366,6 +368,10 @@ export function PatientDetail() {
                 {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select></div>
           </div>
+          <div><label className={labelClass}>Estado</label>
+            <select className={inputClass} value={aptForm.status} onChange={e => setAptForm({ ...aptForm, status: e.target.value })}>
+              <option value="pending">Por confirmar</option><option value="confirmed">Confirmada</option><option value="in_transit">En camino</option>
+            </select></div>
           <div><label className={labelClass}>Notas</label><textarea className={textareaClass} placeholder="Notas adicionales..." value={aptForm.notes} onChange={e => setAptForm({ ...aptForm, notes: e.target.value })} /></div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="tertiary" size="md" onClick={() => setShowAptModal(false)} type="button">Cancelar</Button>
@@ -398,7 +404,7 @@ export function PatientDetail() {
             <select className={inputClass} value={treatmentForm.service} onChange={e => setTreatmentForm({ ...treatmentForm, service: e.target.value })}>
               {BILLING_SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
             </select></div>
-          <div><label className={labelClass}>Monto Estimado ($) *</label>
+          <div><label className={labelClass}>Monto Estimado (S/) *</label>
             <input type="number" step="0.01" min="0" className={inputClass} placeholder="Ej: 2500.00" value={treatmentForm.estimated_amount} onChange={e => setTreatmentForm({ ...treatmentForm, estimated_amount: e.target.value })} /></div>
           <div><label className={labelClass}>Notas</label>
             <textarea className={textareaClass} placeholder="Ej: Molar inferior derecho, caries profunda..." value={treatmentForm.notes} onChange={e => setTreatmentForm({ ...treatmentForm, notes: e.target.value })} /></div>

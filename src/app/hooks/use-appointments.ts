@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/auth-context";
 import type { AppointmentWithRelations } from "../lib/types";
+import { toLocalDateStr } from "../lib/constants";
 
 export function useAppointments(date: string) {
   const { clinic } = useAuth();
@@ -74,7 +75,7 @@ export function usePatientAppointments(patientId: string | undefined) {
       return;
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalDateStr(new Date());
 
     const { data } = await supabase
       .from("appointments")
@@ -109,6 +110,7 @@ export function useAppointmentMutations() {
     start_time: string;
     duration_minutes?: number;
     type: string;
+    status?: string;
     notes?: string;
   }) {
     if (!clinic || !user) return { error: "No hay sesión activa" };
@@ -121,7 +123,7 @@ export function useAppointmentMutations() {
       start_time: data.start_time,
       duration_minutes: data.duration_minutes || 30,
       type: data.type,
-      status: "confirmed",
+      status: data.status || "pending",
       notes: data.notes || null,
     } as Record<string, unknown>);
 

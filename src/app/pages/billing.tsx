@@ -9,7 +9,7 @@ import { Plus, Search, Download, DollarSign, TrendingUp, Clock, CheckCircle, XCi
 import { useInvoices, useInvoiceMutations } from "../hooks/use-invoices";
 import { usePatients } from "../hooks/use-patients";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
-import { BILLING_SERVICES, PAYMENT_METHODS } from "../lib/constants";
+import { BILLING_SERVICES, PAYMENT_METHODS, toLocalDateStr } from "../lib/constants";
 import { SearchableSelect } from "../components/ui/searchable-select";
 
 const statusConfig = {
@@ -83,11 +83,11 @@ export function Billing() {
             if (filteredBilling.length === 0) { toast.error("No hay facturas para exportar"); return; }
             const header = "Factura,Paciente,Servicio,Fecha,Monto,Método de Pago,Estado\n";
             const rows = filteredBilling.map(b =>
-              `"${b.invoice_number}","${b.patient?.full_name || '-'}","${b.service}","${new Date(b.date).toLocaleDateString('es-ES')}","${b.amount}","${b.payment_method || '-'}","${b.status === 'paid' ? 'Pagada' : b.status === 'pending' ? 'Pendiente' : 'Vencida'}"`
+              `"${b.invoice_number}","${b.patient?.full_name || '-'}","${b.service}","${b.date.split('-').reverse().join('/')}","${b.amount}","${b.payment_method || '-'}","${b.status === 'paid' ? 'Pagada' : b.status === 'pending' ? 'Pendiente' : 'Vencida'}"`
             ).join("\n");
             const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement("a"); a.href = url; a.download = `facturas_${new Date().toISOString().split("T")[0]}.csv`; a.click();
+            const a = document.createElement("a"); a.href = url; a.download = `facturas_${toLocalDateStr(new Date())}.csv`; a.click();
             URL.revokeObjectURL(url);
             toast.success("CSV exportado");
           }}><Download className="w-4 h-4 mr-2" />Exportar</Button>
@@ -97,57 +97,54 @@ export function Billing() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="p-5">
+          <div className="p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Ingresos del Mes</p>
-                <p className="text-[1.75rem] font-semibold text-foreground leading-tight">${totalRevenue.toLocaleString()}</p>
-                <p className="text-[0.75rem] text-foreground-secondary mt-1">&nbsp;</p>
+                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Ingresos del Mes</p>
+                <p className="text-[1.75rem] font-semibold text-foreground leading-none">S/{totalRevenue.toLocaleString()}</p>
               </div>
               <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <DollarSign className="w-6 h-6 text-primary" />
               </div>
             </div>
-          </CardContent>
+          </div>
         </Card>
         <Card>
-          <CardContent className="p-5">
+          <div className="p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Cobros Pendientes</p>
-                <p className="text-[1.75rem] font-semibold text-foreground leading-tight">${pendingRevenue.toLocaleString()}</p>
+                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Cobros Pendientes</p>
+                <p className="text-[1.75rem] font-semibold text-foreground leading-none">S/{pendingRevenue.toLocaleString()}</p>
                 <p className="text-[0.75rem] text-foreground-secondary mt-1">{invoices.filter(b => b.status !== "paid").length} facturas</p>
               </div>
               <div className="w-12 h-12 rounded-[10px] bg-warning/10 flex items-center justify-center flex-shrink-0">
                 <Clock className="w-6 h-6 text-warning" />
               </div>
             </div>
-          </CardContent>
+          </div>
         </Card>
         <Card>
-          <CardContent className="p-5">
+          <div className="p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Tasa de Cobro</p>
-                <p className="text-[1.75rem] font-semibold text-foreground leading-tight">{collectionRate}%</p>
+                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Tasa de Cobro</p>
+                <p className="text-[1.75rem] font-semibold text-foreground leading-none">{collectionRate}%</p>
                 <p className="text-[0.75rem] text-success mt-1">{collectionRate >= 80 ? "Excelente" : collectionRate >= 60 ? "Buena" : "Mejorable"}</p>
               </div>
               <div className="w-12 h-12 rounded-[10px] bg-success/10 flex items-center justify-center flex-shrink-0">
                 <TrendingUp className="w-6 h-6 text-success" />
               </div>
             </div>
-          </CardContent>
+          </div>
         </Card>
       </div>
 
-      <Card><CardContent className="p-4">
+      <Card><CardContent className="p-3 sm:p-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
-              <input type="text" placeholder="Buscar por paciente o número de factura..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-10 pl-10 pr-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150" />
-            </div>
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
+            <input type="text" placeholder="Buscar factura por paciente o número..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full h-10 pl-10 pr-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150" />
           </div>
           <div className="flex items-center gap-1.5">
             {(["all","paid","pending","overdue"] as const).map(s => (
@@ -184,8 +181,8 @@ export function Billing() {
                       <td className="px-6 py-4"><p className="font-semibold text-foreground text-[0.875rem]">{bill.invoice_number}</p></td>
                       <td className="px-6 py-4"><p className="text-[0.875rem] text-foreground">{patientName}</p></td>
                       <td className="px-6 py-4"><p className="text-[0.875rem] text-foreground-secondary">{bill.service}</p></td>
-                      <td className="px-6 py-4"><div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-foreground-secondary" /><span className="text-[0.875rem] text-foreground">{new Date(bill.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div></td>
-                      <td className="px-6 py-4"><p className="font-semibold text-foreground text-[0.875rem]">${bill.amount.toLocaleString()}</p></td>
+                      <td className="px-6 py-4"><div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-foreground-secondary" /><span className="text-[0.875rem] text-foreground">{(() => { const [y,m,d] = bill.date.split("-"); const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]; return `${d} ${months[parseInt(m)-1]} ${y}`; })()}</span></div></td>
+                      <td className="px-6 py-4"><p className="font-semibold text-foreground text-[0.875rem]">S/{bill.amount.toLocaleString()}</p></td>
                       <td className="px-6 py-4"><p className="text-[0.875rem] text-foreground-secondary">{bill.payment_method || "-"}</p></td>
                       <td className="px-6 py-4">{statusInfo && <Badge variant={statusInfo.variant}><StatusIcon className="w-3 h-3 mr-1" />{statusInfo.label}</Badge>}</td>
                       <td className="px-6 py-4">
@@ -220,7 +217,7 @@ export function Billing() {
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className={labelClass}>Monto ($) *</label><input type="number" step="0.01" min="0" className={inputClass} placeholder="0.00" value={invoiceForm.amount} onChange={e => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} /></div>
+            <div><label className={labelClass}>Monto (S/) *</label><input type="number" step="0.01" min="0" className={inputClass} placeholder="0.00" value={invoiceForm.amount} onChange={e => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} /></div>
             <div><label className={labelClass}>Servicio *</label>
               <select className={inputClass} value={invoiceForm.service} onChange={e => setInvoiceForm({ ...invoiceForm, service: e.target.value })}>
                 <option value="">Seleccionar</option>

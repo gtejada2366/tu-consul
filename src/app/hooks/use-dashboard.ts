@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/auth-context";
 import type { AppointmentWithRelations } from "../lib/types";
+import { toLocalDateStr } from "../lib/constants";
 
 interface DashboardComputedStats {
   appointments_today: number;
@@ -32,20 +33,22 @@ export function useDashboard() {
 
     async function fetchDashboard() {
       setLoading(true);
-      const today = new Date().toISOString().split("T")[0];
+      const today = toLocalDateStr(new Date());
 
-      // Fetch today's appointments (increased limit to 10)
-      const { data: todayAppts } = await supabase
+      // Fetch next 3 upcoming appointments (from today onwards, exclude finished/cancelled)
+      const { data: upcomingAppts } = await supabase
         .from("appointments")
         .select("*, patient:patients(full_name), doctor:users(full_name)")
         .eq("clinic_id", clinic!.id)
-        .eq("date", today)
+        .gte("date", today)
+        .neq("status", "completed")
         .neq("status", "cancelled")
+        .order("date")
         .order("start_time")
-        .limit(10);
+        .limit(3);
 
-      if (todayAppts) {
-        setTodayAppointments(todayAppts as unknown as AppointmentWithRelations[]);
+      if (upcomingAppts) {
+        setTodayAppointments(upcomingAppts as unknown as AppointmentWithRelations[]);
       }
 
       // Compute stats locally instead of relying on RPC
@@ -97,7 +100,7 @@ export function useDashboard() {
       for (let i = 0; i < 7; i++) {
         const d = new Date(weekStart);
         d.setDate(d.getDate() + i);
-        const dateStr = d.toISOString().split("T")[0];
+        const dateStr = toLocalDateStr(d);
 
         const { count } = await supabase
           .from("appointments")

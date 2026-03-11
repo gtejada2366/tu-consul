@@ -11,3 +11,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+/** Client that does NOT persist its auth session — used for admin sign-up of other users */
+export const supabaseNoSession = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: false },
+});

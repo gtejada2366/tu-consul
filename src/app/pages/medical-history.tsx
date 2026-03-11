@@ -8,6 +8,7 @@ import { Loading } from "../components/ui/loading";
 import { Modal } from "../components/ui/modal";
 import { ArrowLeft, Plus, FileText, Pill, Microscope, Download, Calendar, Trash2 } from "lucide-react";
 import { usePatient } from "../hooks/use-patients";
+import { toLocalDateStr } from "../lib/constants";
 import { useMedicalHistory, useConsultationMutations } from "../hooks/use-medical-history";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
 
@@ -82,7 +83,7 @@ export function MedicalHistory() {
             ).join("\n");
             const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement("a"); a.href = url; a.download = `historia_${patient?.full_name?.replace(/\s/g, '_') || 'paciente'}_${new Date().toISOString().split("T")[0]}.csv`; a.click();
+            const a = document.createElement("a"); a.href = url; a.download = `historia_${patient?.full_name?.replace(/\s/g, '_') || 'paciente'}_${toLocalDateStr(new Date())}.csv`; a.click();
             URL.revokeObjectURL(url);
             toast.success("CSV exportado");
           }}><Download className="w-4 h-4 mr-2" />Exportar</Button>
@@ -91,7 +92,7 @@ export function MedicalHistory() {
       </div>
 
       {patient && (
-        <Card><CardContent className="p-6">
+        <Card><div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Edad</p><p className="text-[0.875rem] font-semibold text-foreground">{patient.age ?? "-"} años</p></div>
             <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Grupo Sanguíneo</p><p className="text-[0.875rem] font-semibold text-foreground">{patient.blood_type || "-"}</p></div>
@@ -99,7 +100,7 @@ export function MedicalHistory() {
               <div className="flex flex-wrap gap-1">{patient.allergies.length > 0 ? patient.allergies.map((a, i) => <Badge key={i} variant="danger" className="text-[0.65rem]">{a}</Badge>) : <span className="text-[0.875rem] text-foreground-secondary">Ninguna</span>}</div></div>
             <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Total de Consultas</p><p className="text-[0.875rem] font-semibold text-foreground">{patient.total_visits}</p></div>
           </div>
-        </CardContent></Card>
+        </div></Card>
       )}
 
       <Card><CardHeader><CardTitle>Línea de Tiempo Clínica</CardTitle></CardHeader>
@@ -122,7 +123,7 @@ export function MedicalHistory() {
                             <div>
                               <div className="flex items-center gap-2 mb-1"><h3 className="font-semibold text-foreground">{event.title}</h3><Badge variant={config.badgeVariant}>{config.label}</Badge></div>
                               <div className="flex items-center gap-3 text-[0.75rem] text-foreground-secondary">
-                                <div className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{new Date(event.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                                <div className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{(() => { const [y,m,d] = event.date.split("-"); const months = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]; return `${d} de ${months[parseInt(m)-1]} de ${y}`; })()}</div>
                                 {event.time && <><span>•</span><span>{event.time.slice(0, 5)}</span></>}
                               </div>
                             </div>

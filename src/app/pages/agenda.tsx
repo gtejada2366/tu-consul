@@ -8,7 +8,7 @@ import { Loading } from "../components/ui/loading";
 import { Modal } from "../components/ui/modal";
 import {
   ChevronLeft, ChevronRight, Plus, Search,
-  Calendar as CalendarIcon, Clock, User, X
+  Calendar as CalendarIcon, Clock, User, X, FileText
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAppointments, useWeekAppointments, useAppointmentMutations } from "../hooks/use-appointments";
@@ -17,11 +17,11 @@ import { useClinicUsers, useClinicSchedules } from "../hooks/use-clinic";
 import type { AppointmentWithRelations } from "../lib/types";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
 import { SearchableSelect } from "../components/ui/searchable-select";
-import { APPOINTMENT_TYPES, DURATION_OPTIONS, STATUS_COLORS, STATUS_LABELS, generateTimeSlots, getTypeColor, TYPE_COLORS } from "../lib/constants";
+import { APPOINTMENT_TYPES, DURATION_OPTIONS, STATUS_COLORS, STATUS_LABELS, generateTimeSlots, getTypeColor, TYPE_COLORS, toLocalDateStr, to12h } from "../lib/constants";
 
-function formatDate(date: Date): string { return date.toISOString().split("T")[0]; }
+function formatDate(date: Date): string { return toLocalDateStr(date); }
 function formatDisplayDate(date: Date): string {
-  return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toLowerCase();
 }
 
 function getWeekRange(date: Date): { start: Date; end: Date } {
@@ -68,7 +68,7 @@ export function Agenda() {
   const [agendaSearch, setAgendaSearch] = useState("");
   const { users: clinicUsers } = useClinicUsers();
   const doctors = clinicUsers.filter(u => u.role === "doctor" || u.role === "admin");
-  const [aptForm, setAptForm] = useState({ patient_id: "", doctor_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
+  const [aptForm, setAptForm] = useState({ patient_id: "", doctor_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "" });
   const [editForm, setEditForm] = useState({ date: "", start_time: "", duration_minutes: "", type: "", status: "", notes: "", doctor_id: "" });
 
   // Drag & Drop state
@@ -117,7 +117,7 @@ export function Agenda() {
     if (!apt || apt.start_time?.slice(0, 5) === newTime) return;
     const { error } = await updateAppointment(aptId, { start_time: newTime });
     if (error) { toast.error(error); }
-    else { toast.success(`Cita movida a ${newTime}`); setSelectedAppointment(null); refetch(); refetchWeek(); }
+    else { toast.success(`Cita movida a ${to12h(newTime)}`); setSelectedAppointment(null); refetch(); refetchWeek(); }
   }
 
   async function handleDropOnDay(e: React.DragEvent, newDate: string) {
@@ -135,8 +135,8 @@ export function Agenda() {
   function goToDay(offset: number) { const d = new Date(currentDate); d.setDate(d.getDate() + (view === "week" ? offset * 7 : offset)); setCurrentDate(d); setSelectedAppointment(null); }
   function goToToday() { setCurrentDate(new Date()); setSelectedAppointment(null); }
 
-  function openCreateModal() {
-    setAptForm({ patient_id: "", doctor_id: "", date: formatDate(currentDate), start_time: "09:00", duration_minutes: "30", type: "Consulta General", notes: "" });
+  function openCreateModal(time?: string) {
+    setAptForm({ patient_id: "", doctor_id: "", date: formatDate(currentDate), start_time: time || "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "" });
     setShowCreateModal(true);
   }
 
@@ -157,7 +157,7 @@ export function Agenda() {
     setSaving(true);
     const { error } = await createAppointment({
       patient_id: aptForm.patient_id, doctor_id: aptForm.doctor_id || undefined, date: aptForm.date, start_time: aptForm.start_time,
-      duration_minutes: parseInt(aptForm.duration_minutes), type: aptForm.type,
+      duration_minutes: parseInt(aptForm.duration_minutes), type: aptForm.type, status: aptForm.status,
       notes: aptForm.notes || undefined,
     });
     setSaving(false);
@@ -196,14 +196,17 @@ export function Agenda() {
           <h1 className="text-[1.5rem] md:text-[1.75rem] font-semibold text-foreground">Agenda</h1>
           <p className="text-[0.875rem] text-foreground-secondary mt-1">Gestiona tus citas y horarios</p>
         </div>
-        <Button variant="primary" size="md" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nueva Cita</Button>
+        <Button variant="primary" size="md" onClick={() => openCreateModal()}><Plus className="w-4 h-4 mr-2" />Nueva Cita</Button>
       </div>
 
-      <Card><CardContent className="p-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3">
+      <Card><CardContent className="p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button variant="ghost" size="sm" onClick={() => goToDay(-1)}><ChevronLeft className="w-4 h-4" /></Button>
-            <div className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 text-foreground-secondary hidden sm:block" /><span className="font-semibold text-foreground capitalize text-[0.8125rem] sm:text-[0.875rem]">{view === "week" ? `${weekRange.start.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — ${weekRange.end.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}` : formatDisplayDate(currentDate)}</span></div>
+            <div className="flex items-center gap-2 h-10 px-2">
+              <CalendarIcon className="w-4 h-4 text-foreground-secondary flex-shrink-0 hidden sm:block" />
+              <span className="font-semibold text-foreground text-[0.8125rem] sm:text-[0.875rem] leading-none">{view === "week" ? `${weekRange.start.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — ${weekRange.end.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}` : formatDisplayDate(currentDate)}</span>
+            </div>
             <Button variant="ghost" size="sm" onClick={() => goToDay(1)}><ChevronRight className="w-4 h-4" /></Button>
           </div>
           <div className="flex items-center gap-2">
@@ -252,7 +255,7 @@ export function Agenda() {
                     return (
                       <div key={time} className={`flex border-b border-border last:border-0 transition-colors ${isDropTarget ? "bg-primary/10" : ""}`}
                         onDragOver={e => handleDragOver(e, `time:${time}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnTime(e, time)}>
-                        <div className="w-16 py-3 text-[0.75rem] text-foreground-secondary font-medium">{time}</div>
+                        <div className="w-16 py-3 text-[0.75rem] text-foreground-secondary font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => openCreateModal(time)}>{to12h(time)}</div>
                         <div className="flex-1 py-2 relative">
                           {slotApts.map((apt) => {
                             const tc = getTypeColor(apt.type);
@@ -272,7 +275,7 @@ export function Agenda() {
                             </div>
                             );
                           })}
-                          {slotApts.length === 0 && <div className={`h-12 rounded-[8px] ${isDropTarget ? "border-2 border-dashed border-primary" : ""}`}></div>}
+                          {slotApts.length === 0 && <div onClick={() => openCreateModal(time)} className={`h-12 rounded-[8px] cursor-pointer hover:bg-surface-alt transition-colors ${isDropTarget ? "border-2 border-dashed border-primary" : ""}`}></div>}
                         </div>
                       </div>
                     );
@@ -327,7 +330,7 @@ export function Agenda() {
                               ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
                               ${draggedAptId === apt.id ? "opacity-50" : ""}`}>
                             <p className="text-[0.6875rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
-                            <p className="text-[0.625rem] text-foreground-secondary">{apt.start_time?.slice(0, 5)}</p>
+                            <p className="text-[0.625rem] text-foreground-secondary">{to12h(apt.start_time)}</p>
                             <p className="text-[0.5625rem] text-foreground-secondary truncate">{apt.type}</p>
                           </div>
                           );
@@ -367,8 +370,11 @@ export function Agenda() {
                     <div className="space-y-3">
                       <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Paciente</p><p className="font-semibold text-foreground">{selectedAppointment.patient?.full_name || "-"}</p></div></div>
                       <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Doctor</p><p className="font-semibold text-foreground">{selectedAppointment.doctor?.full_name || "-"}</p></div></div>
-                      <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><Clock className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Horario</p><p className="font-semibold text-foreground">{selectedAppointment.start_time?.slice(0, 5)} ({selectedAppointment.duration_minutes} min)</p></div></div>
+                      <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><Clock className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Horario</p><p className="font-semibold text-foreground">{to12h(selectedAppointment.start_time)} ({selectedAppointment.duration_minutes} min)</p></div></div>
                       <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><CalendarIcon className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Tipo</p><p className="font-semibold text-foreground">{selectedAppointment.type}</p></div></div>
+                      {selectedAppointment.notes && (
+                        <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Notas</p><p className="text-[0.875rem] text-foreground">{selectedAppointment.notes}</p></div></div>
+                      )}
                     </div>
                     <div className="pt-3 border-t border-border"><Badge variant={STATUS_COLORS[selectedAppointment.status]} className="mb-4">{STATUS_LABELS[selectedAppointment.status]}</Badge></div>
                     <div className="space-y-2">
@@ -383,10 +389,10 @@ export function Agenda() {
               </motion.div>
             ) : (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <Card><CardContent className="p-12 text-center">
+                <Card><div className="p-12 text-center">
                   <CalendarIcon className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
                   <p className="text-[0.875rem] text-foreground-secondary">Selecciona una cita para ver los detalles</p>
-                </CardContent></Card>
+                </div></Card>
               </motion.div>
             )}
           </AnimatePresence>
@@ -426,6 +432,10 @@ export function Agenda() {
                 {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select></div>
           </div>
+          <div><label className={labelClass}>Estado</label>
+            <select className={inputClass} value={aptForm.status} onChange={e => setAptForm({ ...aptForm, status: e.target.value })}>
+              <option value="pending">Por confirmar</option><option value="confirmed">Confirmada</option><option value="in_transit">En camino</option>
+            </select></div>
           <div><label className={labelClass}>Notas</label><textarea className={textareaClass} placeholder="Notas adicionales..." value={aptForm.notes} onChange={e => setAptForm({ ...aptForm, notes: e.target.value })} /></div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="tertiary" size="md" onClick={() => setShowCreateModal(false)} type="button">Cancelar</Button>
@@ -473,7 +483,7 @@ export function Agenda() {
       {/* Cancel Appointment Modal */}
       <Modal open={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancelar Cita" size="sm">
         <div className="space-y-4">
-          <p className="text-[0.875rem] text-foreground-secondary">¿Cancelar la cita de <strong className="text-foreground">{selectedAppointment?.patient?.full_name}</strong> el {selectedAppointment?.date ? new Date(selectedAppointment.date).toLocaleDateString('es-ES') : ""} a las {selectedAppointment?.start_time?.slice(0, 5)}?</p>
+          <p className="text-[0.875rem] text-foreground-secondary">¿Cancelar la cita de <strong className="text-foreground">{selectedAppointment?.patient?.full_name}</strong> el {selectedAppointment?.date ? selectedAppointment.date.split("-").reverse().join("/") : ""} a las {to12h(selectedAppointment?.start_time)}?</p>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="tertiary" size="md" onClick={() => setShowCancelModal(false)}>No, mantener</Button>
             <Button variant="danger" size="md" onClick={handleCancelApt} disabled={saving}>{saving ? "Cancelando..." : "Sí, cancelar"}</Button>

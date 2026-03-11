@@ -98,3 +98,19 @@ export function generateTimeSlots(startTime = "08:00", endTime = "18:30"): strin
 
   return slots;
 }
+
+/** Format a Date to "YYYY-MM-DD" in LOCAL timezone (avoids UTC shift from toISOString) */
+export function toLocalDateStr(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** Convert "HH:MM" (24h) to "h:mm AM/PM" (12h) */
+export function to12h(time: string | null | undefined): string {
+  if (!time) return "-";
+  const [hStr, mStr] = time.slice(0, 5).split(":");
+  let h = parseInt(hStr);
+  const suffix = h >= 12 ? "PM" : "AM";
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return `${h}:${mStr} ${suffix}`;
+}

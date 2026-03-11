@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase, supabaseNoSession } from "../lib/supabase";
 import { useAuth } from "../contexts/auth-context";
 import type { User, ClinicSchedule, NotificationPreferences } from "../lib/types";
 
@@ -116,4 +116,63 @@ export function useClinicMutations() {
   }
 
   return { updateClinic };
+}
+
+export function useUserMutations() {
+  const { clinic } = useAuth();
+
+  async function createUser(data: {
+    full_name: string;
+    email: string;
+    password: string;
+    role: "admin" | "doctor" | "receptionist";
+    specialty?: string;
+  }) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    // 1. Create auth user with the non-session client (won't log out admin)
+    const { data: authData, error: authError } = await supabaseNoSession.auth.signUp({
+      email: data.email,
+      password: data.password,
+    });
+
+    if (authError) return { error: authError.message };
+    if (!authData.user) return { error: "No se pudo crear el usuario" };
+
+    // 2. Insert into users table
+    const { error: dbError } = await supabase.from("users").insert({
+      id: authData.user.id,
+      clinic_id: clinic.id,
+      full_name: data.full_name,
+      email: data.email,
+      role: data.role,
+      specialty: data.specialty || null,
+      is_active: true,
+    } as Record<string, unknown>);
+
+    if (dbError) return { error: dbError.message };
+    return { error: null };
+  }
+
+  async function updateUserRole(userId: string, role: string) {
+    if (!clinic) return { error: "No hay clínica activa" };
+    const { error } = await supabase
+      .from("users")
+      .update({ role, updated_at: new Date().toISOString() } as Record<string, unknown>)
+      .eq("id", userId)
+      .eq("clinic_id", clinic.id);
+    return { error: error?.message || null };
+  }
+
+  async function toggleUserActive(userId: string, isActive: boolean) {
+    if (!clinic) return { error: "No hay clínica activa" };
+    const { error } = await supabase
+      .from("users")
+      .update({ is_active: isActive, updated_at: new Date().toISOString() } as Record<string, unknown>)
+      .eq("id", userId)
+      .eq("clinic_id", clinic.id);
+    return { error: error?.message || null };
+  }
+
+  return { createUser, updateUserRole, toggleUserActive };
 }

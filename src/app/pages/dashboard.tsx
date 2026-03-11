@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { useDashboard } from "../hooks/use-dashboard";
-import { STATUS_COLORS, STATUS_LABELS } from "../lib/constants";
+import { STATUS_COLORS, STATUS_LABELS, to12h } from "../lib/constants";
 
 export function Dashboard() {
   const { stats, todayAppointments, weeklyData, loading, canSeeRevenue } = useDashboard();
@@ -49,7 +49,7 @@ export function Dashboard() {
     },
     ...(canSeeRevenue ? [{
       title: "Ingresos del Día",
-      value: `$${stats.revenue_today.toLocaleString()}`,
+      value: `S/${stats.revenue_today.toLocaleString()}`,
       icon: DollarSign,
       color: "text-primary",
       bgColor: "bg-primary/10"
@@ -86,13 +86,13 @@ export function Dashboard() {
       <div className={`grid grid-cols-1 md:grid-cols-2 ${canSeeRevenue ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}>
         {kpiData.map((kpi, index) => (
           <Card key={index} className="hover:shadow-md transition-shadow duration-150">
-            <CardContent className="p-5">
+            <div className="p-5">
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">
+                  <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">
                     {kpi.title}
                   </p>
-                  <p className="text-[1.75rem] font-semibold text-foreground leading-tight">
+                  <p className="text-[1.75rem] font-semibold text-foreground leading-none">
                     {kpi.value}
                   </p>
                 </div>
@@ -100,7 +100,7 @@ export function Dashboard() {
                   <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
                 </div>
               </div>
-            </CardContent>
+            </div>
           </Card>
         ))}
       </div>
@@ -140,7 +140,7 @@ export function Dashboard() {
                         </Badge>
                       </div>
                       <p className="text-[0.75rem] text-foreground-secondary">
-                        {new Date(appointment.date + "T00:00").toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} • {appointment.start_time?.slice(0, 5)} • {appointment.type}
+                        {(() => { const dateStr = appointment.date.split("T")[0]; const [,m,d] = dateStr.split("-"); const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]; return `${d} ${months[parseInt(m)-1]}`; })()} • {to12h(appointment.start_time)} • {appointment.type}
                       </p>
                     </div>
                     <Link to="/agenda">
@@ -155,7 +155,7 @@ export function Dashboard() {
               <div className="text-center py-12">
                 <Calendar className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
                 <p className="text-[0.875rem] text-foreground-secondary">
-                  No hay citas para hoy
+                  No hay citas próximas
                 </p>
               </div>
             )}

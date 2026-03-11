@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router";
+import { useAuth } from "../contexts/auth-context";
 import {
   LayoutDashboard,
   Calendar,
@@ -28,6 +29,7 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { user } = useAuth();
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -80,7 +82,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 py-6">
         <ul className="space-y-1 px-3">
-          {navigation.map((item) => {
+          {navigation.filter(item => item.href !== "/facturacion" || user?.role === "admin").map((item) => {
             const isActive = location.pathname === item.href ||
               (item.href !== "/" && location.pathname.startsWith(item.href));
 

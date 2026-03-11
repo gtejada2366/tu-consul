@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/auth-context";
 import type { InvoiceWithPatient } from "../lib/types";
+import { toLocalDateStr } from "../lib/constants";
 
 export function useInvoices() {
   const { clinic } = useAuth();
@@ -60,7 +61,7 @@ export function useInvoiceMutations() {
       patient_id: data.patient_id,
       appointment_id: data.appointment_id || null,
       invoice_number: "",
-      date: new Date().toISOString().split("T")[0],
+      date: toLocalDateStr(new Date()),
       amount: data.amount,
       service: data.service,
       status: "pending",

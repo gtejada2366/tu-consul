@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/auth-context";
 import type { ConsultationWithRelations } from "../lib/types";
+import { toLocalDateStr } from "../lib/constants";
 
 export function useMedicalHistory(patientId: string | undefined) {
   const { clinic } = useAuth();
@@ -64,7 +65,7 @@ export function useConsultationMutations() {
         patient_id: data.patient_id,
         doctor_id: user.id,
         appointment_id: data.appointment_id || null,
-        date: now.toISOString().split("T")[0],
+        date: toLocalDateStr(now),
         time: now.toTimeString().slice(0, 5),
         type: data.type,
         title: data.title,
