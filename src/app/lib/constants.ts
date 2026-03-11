@@ -14,6 +14,24 @@ export const APPOINTMENT_TYPES = [
   "Endodoncia",
 ];
 
+/** Color config per appointment type: [bg class, border class, dot color] */
+export const TYPE_COLORS: Record<string, { bg: string; border: string; dot: string }> = {
+  "Consulta General": { bg: "bg-blue-50",    border: "border-blue-400",    dot: "bg-blue-400" },
+  "Primera Vez":      { bg: "bg-violet-50",  border: "border-violet-400",  dot: "bg-violet-400" },
+  "Control":          { bg: "bg-teal-50",    border: "border-teal-400",    dot: "bg-teal-400" },
+  "Seguimiento":      { bg: "bg-cyan-50",    border: "border-cyan-400",    dot: "bg-cyan-400" },
+  "Urgencia":         { bg: "bg-red-50",     border: "border-red-400",     dot: "bg-red-400" },
+  "Limpieza":         { bg: "bg-emerald-50", border: "border-emerald-400", dot: "bg-emerald-400" },
+  "Ortodoncia":       { bg: "bg-amber-50",   border: "border-amber-400",   dot: "bg-amber-400" },
+  "Endodoncia":       { bg: "bg-orange-50",  border: "border-orange-400",  dot: "bg-orange-400" },
+};
+
+const DEFAULT_TYPE_COLOR = { bg: "bg-gray-50", border: "border-gray-400", dot: "bg-gray-400" };
+
+export function getTypeColor(type: string) {
+  return TYPE_COLORS[type] || DEFAULT_TYPE_COLOR;
+}
+
 export const BILLING_SERVICES = [
   "Consulta General",
   "Primera Consulta",

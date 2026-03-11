@@ -16,7 +16,7 @@ import { usePatients } from "../hooks/use-patients";
 import { useClinicUsers, useClinicSchedules } from "../hooks/use-clinic";
 import type { AppointmentWithRelations } from "../lib/types";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
-import { APPOINTMENT_TYPES, DURATION_OPTIONS, STATUS_COLORS, STATUS_LABELS, generateTimeSlots } from "../lib/constants";
+import { APPOINTMENT_TYPES, DURATION_OPTIONS, STATUS_COLORS, STATUS_LABELS, generateTimeSlots, getTypeColor, TYPE_COLORS } from "../lib/constants";
 
 function formatDate(date: Date): string { return date.toISOString().split("T")[0]; }
 function formatDisplayDate(date: Date): string {
@@ -215,6 +215,19 @@ export function Agenda() {
         </div>
       </CardContent></Card>
 
+      {/* Type legend */}
+      <div className="flex items-center gap-3 flex-wrap px-1">
+        {APPOINTMENT_TYPES.map(t => {
+          const tc = getTypeColor(t);
+          return (
+            <div key={t} className="flex items-center gap-1.5">
+              <span className={`w-2.5 h-2.5 rounded-full ${tc.dot} flex-shrink-0`} />
+              <span className="text-[0.6875rem] text-foreground-secondary">{t}</span>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2"><CardContent className="p-0">
           {(view === "day" ? loading : weekLoading) ? <Loading /> : view === "day" ? (
@@ -240,18 +253,14 @@ export function Agenda() {
                         onDragOver={e => handleDragOver(e, `time:${time}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnTime(e, time)}>
                         <div className="w-16 py-3 text-[0.75rem] text-foreground-secondary font-medium">{time}</div>
                         <div className="flex-1 py-2 relative">
-                          {slotApts.map((apt) => (
+                          {slotApts.map((apt) => {
+                            const tc = getTypeColor(apt.type);
+                            return (
                             <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
                               onClick={() => setSelectedAppointment(apt)}
-                              className={`mb-2 p-3 rounded-[10px] border-l-4 transition-all duration-150
+                              className={`mb-2 p-3 rounded-[10px] border-l-4 transition-all duration-150 ${tc.bg} ${tc.border}
                                 ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
-                                ${draggedAptId === apt.id ? "opacity-50" : ""}
-                                ${apt.status === "confirmed" && "bg-success/10 border-success"}
-                                ${apt.status === "pending" && "bg-warning/10 border-warning"}
-                                ${apt.status === "in_transit" && "bg-warning/10 border-warning"}
-                                ${apt.status === "in_progress" && "bg-success/10 border-success"}
-                                ${apt.status === "completed" && "bg-primary/10 border-primary"}
-                                ${apt.status === "cancelled" && "bg-danger/10 border-danger"}`}>
+                                ${draggedAptId === apt.id ? "opacity-50" : ""}`}>
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
                                   <p className="font-semibold text-foreground text-[0.875rem] truncate">{apt.patient?.full_name || "-"}</p>
@@ -260,7 +269,8 @@ export function Agenda() {
                                 <Badge variant={STATUS_COLORS[apt.status]}>{STATUS_LABELS[apt.status]}</Badge>
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                           {slotApts.length === 0 && <div className={`h-12 rounded-[8px] ${isDropTarget ? "border-2 border-dashed border-primary" : ""}`}></div>}
                         </div>
                       </div>
@@ -307,23 +317,20 @@ export function Agenda() {
                       <div key={i} className={`border-r border-border last:border-r-0 p-1.5 space-y-1 transition-colors
                         ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15 ring-2 ring-inset ring-primary/30" : ""}`}
                         onDragOver={e => handleDragOver(e, `date:${dateStr}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnDay(e, dateStr)}>
-                        {dayApts.length > 0 ? dayApts.map(apt => (
+                        {dayApts.length > 0 ? dayApts.map(apt => {
+                          const tc = getTypeColor(apt.type);
+                          return (
                           <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
                             onClick={() => setSelectedAppointment(apt)}
-                            className={`p-2 rounded-[8px] border-l-3 transition-all duration-150 text-left
+                            className={`p-2 rounded-[8px] border-l-3 transition-all duration-150 text-left ${tc.bg} ${tc.border}
                               ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
-                              ${draggedAptId === apt.id ? "opacity-50" : ""}
-                              ${apt.status === "confirmed" && "bg-success/10 border-success"}
-                              ${apt.status === "pending" && "bg-warning/10 border-warning"}
-                              ${apt.status === "in_transit" && "bg-warning/10 border-warning"}
-                              ${apt.status === "in_progress" && "bg-success/10 border-success"}
-                              ${apt.status === "completed" && "bg-primary/10 border-primary"}
-                              ${apt.status === "cancelled" && "bg-danger/10 border-danger"}`}>
+                              ${draggedAptId === apt.id ? "opacity-50" : ""}`}>
                             <p className="text-[0.6875rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
                             <p className="text-[0.625rem] text-foreground-secondary">{apt.start_time?.slice(0, 5)}</p>
                             <p className="text-[0.5625rem] text-foreground-secondary truncate">{apt.type}</p>
                           </div>
-                        )) : (
+                          );
+                        }) : (
                           <p className={`text-[0.625rem] text-foreground-secondary text-center pt-4 opacity-50 ${isDayDropTarget ? "hidden" : ""}`}>Sin citas</p>
                         )}
                         {isDayDropTarget && dayApts.length === 0 && (
