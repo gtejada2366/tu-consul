@@ -55,6 +55,18 @@ export const PAYMENT_METHODS = [
 
 export const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
+// Filiation constants
+export const DOCUMENT_TYPES = ["DNI", "Pasaporte", "CE", "RUC", "Otro"];
+export const GENDERS = ["Masculino", "Femenino", "Otro"];
+export const MARITAL_STATUSES = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a", "Unión libre"];
+export const EDUCATION_LEVELS = ["Primaria", "Secundaria", "Técnico", "Universitario", "Postgrado", "Otro"];
+export const DENTAL_HYGIENE_OPTIONS = ["1 vez al día", "2 veces al día", "3 veces al día", "Ocasional"];
+export const CHRONIC_CONDITIONS_OPTIONS = [
+  "Diabetes", "Hipertensión", "Asma", "Cardiopatía", "Epilepsia",
+  "Hepatitis", "VIH/SIDA", "Artritis", "Tiroides", "Anemia",
+];
+export const RELATIONSHIPS = ["Padre/Madre", "Esposo/a", "Hijo/a", "Hermano/a", "Familiar", "Amigo/a", "Otro"];
+
 export const DURATION_OPTIONS = [
   { value: "15", label: "15 min" },
   { value: "30", label: "30 min" },

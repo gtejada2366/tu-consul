@@ -118,6 +118,49 @@ export interface Patient {
   allergies: string[];
   status: "active" | "inactive";
   notes: string | null;
+  // Filiation: Personal data
+  document_type: string | null;
+  document_number: string | null;
+  gender: string | null;
+  marital_status: string | null;
+  occupation: string | null;
+  nationality: string | null;
+  education_level: string | null;
+  // Filiation: Contact extensions
+  phone_mobile: string | null;
+  city: string | null;
+  district: string | null;
+  address_reference: string | null;
+  // Filiation: Emergency contact
+  emergency_contact_name: string | null;
+  emergency_contact_relationship: string | null;
+  emergency_contact_phone: string | null;
+  // Filiation: Medical background
+  chronic_conditions: string[];
+  current_medications: string | null;
+  previous_surgeries: string | null;
+  hospitalizations: string | null;
+  family_history: string | null;
+  is_pregnant: boolean;
+  is_breastfeeding: boolean;
+  smoking: boolean;
+  alcohol_consumption: boolean;
+  // Filiation: Dental background
+  previous_dental_treatments: string | null;
+  bruxism: boolean;
+  dental_sensitivity: boolean;
+  bleeding_gums: boolean;
+  orthodontic_history: boolean;
+  last_dental_visit: string | null;
+  dental_hygiene_frequency: string | null;
+  dental_notes: string | null;
+  // Filiation: Insurance
+  insurance_company: string | null;
+  insurance_plan: string | null;
+  insurance_member_number: string | null;
+  insurance_effective_date: string | null;
+  insurance_expiry_date: string | null;
+  // Timestamps
   created_at: string;
   updated_at: string;
 }

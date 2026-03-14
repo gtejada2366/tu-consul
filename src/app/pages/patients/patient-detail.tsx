@@ -7,8 +7,8 @@ import { Badge } from "../../components/ui/badge";
 import { Loading } from "../../components/ui/loading";
 import { Modal } from "../../components/ui/modal";
 import {
-  ArrowLeft, Mail, Phone, MapPin, Calendar, Clock, FileText, Edit, Trash2, AlertCircle,
-  DollarSign, Plus, Check
+  ArrowLeft, Mail, Phone, MapPin, Calendar, Clock, FileText, Trash2, AlertCircle,
+  DollarSign, Plus, Check, User, Heart, Stethoscope, Shield
 } from "lucide-react";
 import { usePatient, usePatientMutations } from "../../hooks/use-patients";
 import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use-appointments";
@@ -16,7 +16,28 @@ import { useMedicalHistory, useConsultationMutations } from "../../hooks/use-med
 import { useClinicUsers } from "../../hooks/use-clinic";
 import { usePotentialTreatments, usePotentialTreatmentMutations } from "../../hooks/use-potential-treatments";
 import { inputClass, labelClass, textareaClass } from "../../components/modals/form-classes";
-import { APPOINTMENT_TYPES, DURATION_OPTIONS, BLOOD_TYPES, BILLING_SERVICES, STATUS_COLORS, STATUS_LABELS, toLocalDateStr, to12h } from "../../lib/constants";
+import { SearchableSelect } from "../../components/ui/searchable-select";
+import { APPOINTMENT_TYPES, DURATION_OPTIONS, BILLING_SERVICES, STATUS_COLORS, STATUS_LABELS, toLocalDateStr, to12h } from "../../lib/constants";
+
+// Tab components
+import { PersonalDataTab } from "./tabs/personal-data-tab";
+import { ContactTab } from "./tabs/contact-tab";
+import { MedicalTab } from "./tabs/medical-tab";
+import { DentalTab } from "./tabs/dental-tab";
+import { InsuranceTab } from "./tabs/insurance-tab";
+
+const TABS = [
+  { id: "personal", label: "Datos Personales", icon: User },
+  { id: "contact", label: "Contacto", icon: Phone },
+  { id: "medical", label: "Antecedentes Médicos", icon: Heart },
+  { id: "dental", label: "Antecedentes Odontológicos", icon: Stethoscope },
+  { id: "insurance", label: "Seguro", icon: Shield },
+  { id: "appointments", label: "Citas", icon: Calendar },
+  { id: "history", label: "Historia Clínica", icon: FileText },
+  { id: "billing", label: "Facturación", icon: DollarSign },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
 
 export function PatientDetail() {
   const { id } = useParams();
@@ -32,42 +53,22 @@ export function PatientDetail() {
   const { treatments, pending: pendingTreatments, pendingTotal, refetch: refetchTreatments } = usePotentialTreatments(id);
   const { createTreatment, markAsCompleted, removeTreatment } = usePotentialTreatmentMutations();
 
-  const recentHistory = consultations.filter(c => c.type === "consulta").slice(0, 3);
+  const recentHistory = consultations.filter(c => c.type === "consulta").slice(0, 5);
 
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>("personal");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAptModal, setShowAptModal] = useState(false);
   const [showConModal, setShowConModal] = useState(false);
   const [showTreatmentModal, setShowTreatmentModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [treatmentForm, setTreatmentForm] = useState({ service: BILLING_SERVICES[0], estimated_amount: "", notes: "" });
 
-  const [editForm, setEditForm] = useState({ full_name: "", email: "", phone: "", address: "", birthdate: "", blood_type: "", allergies: "" });
   const [aptForm, setAptForm] = useState({ date: toLocalDateStr(new Date()), start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "", doctor_id: "" });
   const [conForm, setConForm] = useState({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
+  const [treatmentForm, setTreatmentForm] = useState({ service: BILLING_SERVICES[0], estimated_amount: "", notes: "" });
 
-  function openEditModal() {
-    if (!patient) return;
-    setEditForm({
-      full_name: patient.full_name, email: patient.email || "", phone: patient.phone || "",
-      address: patient.address || "", birthdate: patient.birthdate || "",
-      blood_type: patient.blood_type || "", allergies: patient.allergies.join(", "),
-    });
-    setShowEditModal(true);
-  }
-
-  async function handleEdit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!id || !editForm.full_name.trim()) { toast.error("El nombre es obligatorio"); return; }
-    setSaving(true);
-    const { error } = await updatePatient(id, {
-      full_name: editForm.full_name.trim(), email: editForm.email.trim() || null,
-      phone: editForm.phone.trim() || null, address: editForm.address.trim() || null,
-      birthdate: editForm.birthdate || null, blood_type: editForm.blood_type || null,
-      allergies: editForm.allergies.trim() ? editForm.allergies.split(",").map(a => a.trim()) : [],
-    });
-    setSaving(false);
-    if (error) { toast.error(error); } else { toast.success("Paciente actualizado"); setShowEditModal(false); refetchPatient(); }
+  async function handleSavePatient(updates: Record<string, unknown>) {
+    if (!id) return { error: "No hay ID de paciente" };
+    return updatePatient(id, updates);
   }
 
   async function handleDelete() {
@@ -123,28 +124,12 @@ export function PatientDetail() {
     }
   }
 
-  async function handleCompleteTreatment(treatmentId: string) {
-    setSaving(true);
-    const { error } = await markAsCompleted(treatmentId);
-    setSaving(false);
-    if (error) { toast.error(error); } else { toast.success("Tratamiento completado"); refetchTreatments(); }
-  }
-
-  async function handleRemoveTreatment(treatmentId: string) {
-    setSaving(true);
-    const { error } = await removeTreatment(treatmentId);
-    setSaving(false);
-    if (error) { toast.error(error); } else { toast.success("Tratamiento eliminado"); refetchTreatments(); }
-  }
-
   if (loading) return <Loading />;
 
   if (!patient) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Link to="/pacientes"><Button variant="ghost" size="md"><ArrowLeft className="w-4 h-4 mr-2" />Volver</Button></Link>
-        </div>
+        <Link to="/pacientes"><Button variant="ghost" size="md"><ArrowLeft className="w-4 h-4 mr-2" />Volver</Button></Link>
         <Card>
           <div className="flex flex-col items-center justify-center p-6 py-12 text-center">
             <AlertCircle className="w-12 h-12 text-foreground-secondary mb-4 opacity-50" />
@@ -158,183 +143,178 @@ export function PatientDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to="/pacientes"><Button variant="ghost" size="md"><ArrowLeft className="w-4 h-4 mr-2" />Volver</Button></Link>
-      </div>
+      {/* Back button */}
+      <Link to="/pacientes"><Button variant="ghost" size="md"><ArrowLeft className="w-4 h-4 mr-2" />Volver</Button></Link>
 
+      {/* Patient header card */}
       <Card>
-        <div className="p-6">
+        <div className="p-5 md:p-6">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-2xl font-semibold text-primary">{patient.full_name.split(' ').map(n => n[0]).join('')}</span>
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span className="text-xl font-semibold text-primary">{patient.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}</span>
               </div>
               <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-[1.5rem] md:text-[1.75rem] font-semibold text-foreground">{patient.full_name}</h1>
-                  <Badge variant={patient.status === "active" ? "success" : "secondary"}>{patient.status === "active" ? "Activo" : "Inactivo"}</Badge>
+                <div className="flex items-center gap-3 mb-1.5">
+                  <h1 className="text-[1.25rem] md:text-[1.5rem] font-semibold text-foreground">{patient.full_name}</h1>
+                  <Badge variant={patient.status === "active" ? "success" : "default"}>{patient.status === "active" ? "Activo" : "Inactivo"}</Badge>
                 </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-[0.875rem] text-foreground-secondary"><Mail className="w-4 h-4" /><span>{patient.email || "-"}</span></div>
-                  <div className="flex items-center gap-2 text-[0.875rem] text-foreground-secondary"><Phone className="w-4 h-4" /><span>{patient.phone || "-"}</span></div>
-                  <div className="flex items-center gap-2 text-[0.875rem] text-foreground-secondary"><MapPin className="w-4 h-4" /><span>{patient.address || "-"}</span></div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem] text-foreground-secondary">
+                  {patient.email && <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />{patient.email}</span>}
+                  {patient.phone && <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{patient.phone}</span>}
+                  {patient.address && <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{patient.address}</span>}
+                  {patient.age != null && <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{patient.age} años</span>}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="tertiary" size="md" onClick={openEditModal}><Edit className="w-4 h-4 mr-2" />Editar</Button>
-              <Button variant="danger" size="md" onClick={() => setShowDeleteModal(true)}><Trash2 className="w-4 h-4 mr-2" />Eliminar</Button>
+              <Button variant="primary" size="sm" onClick={() => setShowAptModal(true)}><Plus className="w-4 h-4 mr-1" />Cita</Button>
+              <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}><Trash2 className="w-4 h-4" /></Button>
             </div>
           </div>
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card><CardHeader><CardTitle>Información Médica</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Fecha de Nacimiento</p>
-              <p className="text-[0.875rem] text-foreground">{patient.birthdate ? `${new Date(patient.birthdate).toLocaleDateString('es-ES')} (${patient.age} años)` : "-"}</p></div>
-            <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Grupo Sanguíneo</p>
-              <p className="text-[0.875rem] text-foreground">{patient.blood_type || "-"}</p></div>
-            <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Alergias</p>
-              <div className="flex flex-wrap gap-2">
-                {patient.allergies.length > 0 ? patient.allergies.map((a, i) => <Badge key={i} variant="danger">{a}</Badge>) : <span className="text-[0.875rem] text-foreground-secondary">Ninguna</span>}
-              </div></div>
-          </CardContent>
-        </Card>
-
-        <Card><CardHeader><CardTitle>Estadísticas de Visitas</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Total de Visitas</p>
-              <p className="text-[1.75rem] font-semibold text-foreground">{patient.total_visits}</p></div>
-            <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Última Visita</p>
-              <p className="text-[0.875rem] text-foreground">{patient.last_visit ? new Date(patient.last_visit).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }) : "Sin visitas"}</p></div>
-          </CardContent>
-        </Card>
-
-        <Card><CardHeader><CardTitle>Acciones Rápidas</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            <Button variant="primary" className="w-full justify-start" onClick={() => setShowAptModal(true)}><Calendar className="w-4 h-4 mr-2" />Agendar Cita</Button>
-            <Link to={`/historia-clinica/${id}`} className="block"><Button variant="tertiary" className="w-full justify-start"><FileText className="w-4 h-4 mr-2" />Ver Historia Clínica</Button></Link>
-            <Button variant="tertiary" className="w-full justify-start" onClick={() => setShowConModal(true)}><Clock className="w-4 h-4 mr-2" />Registrar Evolución</Button>
-          </CardContent>
-        </Card>
+      {/* Tab navigation */}
+      <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="flex items-center gap-1 bg-surface border border-border rounded-[12px] p-1 min-w-max">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-[10px] text-[0.8125rem] font-medium transition-all whitespace-nowrap
+                ${activeTab === tab.id
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-foreground-secondary hover:text-foreground hover:bg-surface-alt"
+                }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <Card><CardHeader><CardTitle>Próximas Citas</CardTitle></CardHeader>
-        <CardContent>
-          {upcomingAppointments.length > 0 ? (
-            <div className="space-y-3">
-              {upcomingAppointments.map((apt) => (
-                <div key={apt.id} className="flex items-center justify-between p-4 rounded-[10px] border border-border hover:bg-surface-alt transition-colors duration-150">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center"><Calendar className="w-6 h-6 text-primary" /></div>
-                    <div>
-                      <p className="font-semibold text-foreground text-[0.875rem]">{apt.type}</p>
-                      <p className="text-[0.75rem] text-foreground-secondary">{apt.date.split("-").reverse().join("/")} • {to12h(apt.start_time)}</p>
-                    </div>
-                  </div>
-                  <Badge variant={STATUS_COLORS[apt.status] || "default"}>{STATUS_LABELS[apt.status] || apt.status}</Badge>
-                </div>
-              ))}
-            </div>
-          ) : <p className="text-[0.875rem] text-foreground-secondary text-center py-8">No hay citas programadas</p>}
-        </CardContent>
-      </Card>
+      {/* Tab content */}
+      <Card>
+        <CardContent className="p-5 md:p-6">
+          {activeTab === "personal" && (
+            <PersonalDataTab patient={patient} onSave={handleSavePatient} onRefetch={refetchPatient} />
+          )}
+          {activeTab === "contact" && (
+            <ContactTab patient={patient} onSave={handleSavePatient} onRefetch={refetchPatient} />
+          )}
+          {activeTab === "medical" && (
+            <MedicalTab patient={patient} onSave={handleSavePatient} onRefetch={refetchPatient} />
+          )}
+          {activeTab === "dental" && (
+            <DentalTab patient={patient} onSave={handleSavePatient} onRefetch={refetchPatient} />
+          )}
+          {activeTab === "insurance" && (
+            <InsuranceTab patient={patient} onSave={handleSavePatient} onRefetch={refetchPatient} />
+          )}
 
-      {/* Facturación Potencial */}
-      <Card><CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CardTitle>Facturación Potencial</CardTitle>
-            {pendingTreatments.length > 0 && <Badge variant="warning">{pendingTreatments.length} pendiente{pendingTreatments.length !== 1 ? "s" : ""}</Badge>}
-          </div>
-          <Button variant="primary" size="sm" onClick={() => setShowTreatmentModal(true)}><Plus className="w-4 h-4 mr-1" />Agregar</Button>
-        </div>
-      </CardHeader>
-        <CardContent>
-          {pendingTreatments.length > 0 && (
-            <div className="flex items-center gap-2 mb-4 p-3 rounded-[10px] bg-warning/10">
-              <DollarSign className="w-5 h-5 text-warning" />
-              <span className="text-[0.875rem] font-medium text-foreground">Ingreso potencial pendiente: S/{pendingTotal.toLocaleString()}</span>
+          {/* Appointments tab */}
+          {activeTab === "appointments" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-foreground">Próximas Citas</h3>
+                <Button variant="primary" size="sm" onClick={() => setShowAptModal(true)}><Plus className="w-4 h-4 mr-1" />Agendar</Button>
+              </div>
+              {upcomingAppointments.length > 0 ? (
+                <div className="space-y-3">
+                  {upcomingAppointments.map((apt) => (
+                    <div key={apt.id} className="flex items-center justify-between p-4 rounded-[10px] border border-border hover:bg-surface-alt transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center"><Calendar className="w-5 h-5 text-primary" /></div>
+                        <div>
+                          <p className="font-semibold text-foreground text-[0.875rem]">{apt.type}</p>
+                          <p className="text-[0.75rem] text-foreground-secondary">{apt.date.split("-").reverse().join("/")} • {to12h(apt.start_time)}</p>
+                        </div>
+                      </div>
+                      <Badge variant={STATUS_COLORS[apt.status] || "default"}>{STATUS_LABELS[apt.status] || apt.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-[0.875rem] text-foreground-secondary text-center py-8">No hay citas programadas</p>}
             </div>
           )}
-          {treatments.length > 0 ? (
-            <div className="space-y-3">
-              {treatments.map((t) => (
-                <div key={t.id} className={`flex items-center justify-between p-4 rounded-[10px] border border-border ${t.status === "completed" ? "opacity-60" : ""}`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center ${t.status === "completed" ? "bg-success/10" : "bg-warning/10"}`}>
-                      {t.status === "completed" ? <Check className="w-5 h-5 text-success" /> : <DollarSign className="w-5 h-5 text-warning" />}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground text-[0.875rem]">{t.service}</p>
-                      <p className="text-[0.75rem] text-foreground-secondary">S/{t.estimated_amount.toLocaleString()}{t.notes ? ` · ${t.notes}` : ""}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={t.status === "completed" ? "success" : "warning"}>{t.status === "completed" ? "Completado" : "Pendiente"}</Badge>
-                    {t.status === "pending" && (<>
-                      <Button variant="ghost" size="sm" onClick={() => handleCompleteTreatment(t.id)} disabled={saving}><Check className="w-4 h-4 text-success" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveTreatment(t.id)} disabled={saving}><Trash2 className="w-4 h-4 text-danger" /></Button>
-                    </>)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : <p className="text-[0.875rem] text-foreground-secondary text-center py-8">No hay tratamientos potenciales registrados</p>}
-        </CardContent>
-      </Card>
 
-      <Card><CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Historia Clínica</CardTitle>
-          <Link to={`/historia-clinica/${id}`}><Button variant="ghost" size="sm">Ver completa</Button></Link>
-        </div>
-      </CardHeader>
-        <CardContent>
-          {recentHistory.length > 0 ? (
+          {/* Clinical History tab */}
+          {activeTab === "history" && (
             <div className="space-y-4">
-              {recentHistory.map((entry) => (
-                <div key={entry.id} className="flex items-start gap-4 p-4 rounded-[10px] border border-border">
-                  <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="w-6 h-6 text-primary" /></div>
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <div><p className="font-semibold text-foreground text-[0.875rem]">{entry.title}</p><p className="text-[0.75rem] text-foreground-secondary">{entry.date.split("-").reverse().join("/")}</p></div>
-                      <Badge variant="default">Completada</Badge>
-                    </div>
-                    <p className="text-[0.875rem] text-foreground-secondary">{entry.diagnosis || entry.description || "-"}</p>
-                  </div>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-foreground">Historia Clínica</h3>
+                <div className="flex items-center gap-2">
+                  <Button variant="tertiary" size="sm" onClick={() => setShowConModal(true)}><Plus className="w-4 h-4 mr-1" />Evolución</Button>
+                  <Link to={`/historia-clinica/${id}`}><Button variant="ghost" size="sm">Ver completa</Button></Link>
                 </div>
-              ))}
+              </div>
+              {recentHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {recentHistory.map((entry) => (
+                    <div key={entry.id} className="flex items-start gap-4 p-4 rounded-[10px] border border-border">
+                      <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="w-5 h-5 text-primary" /></div>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-1">
+                          <div><p className="font-semibold text-foreground text-[0.875rem]">{entry.title}</p><p className="text-[0.75rem] text-foreground-secondary">{entry.date.split("-").reverse().join("/")}</p></div>
+                          <Badge variant="default">Completada</Badge>
+                        </div>
+                        <p className="text-[0.8125rem] text-foreground-secondary">{entry.diagnosis || entry.description || "-"}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-[0.875rem] text-foreground-secondary text-center py-8">No hay registros en la historia clínica</p>}
             </div>
-          ) : <p className="text-[0.875rem] text-foreground-secondary text-center py-8">No hay registros en la historia clínica</p>}
+          )}
+
+          {/* Billing tab */}
+          {activeTab === "billing" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold text-foreground">Facturación Potencial</h3>
+                  {pendingTreatments.length > 0 && <Badge variant="warning">{pendingTreatments.length} pendiente{pendingTreatments.length !== 1 ? "s" : ""}</Badge>}
+                </div>
+                <Button variant="primary" size="sm" onClick={() => setShowTreatmentModal(true)}><Plus className="w-4 h-4 mr-1" />Agregar</Button>
+              </div>
+              {pendingTreatments.length > 0 && (
+                <div className="flex items-center gap-2 p-3 rounded-[10px] bg-warning/10">
+                  <DollarSign className="w-5 h-5 text-warning" />
+                  <span className="text-[0.875rem] font-medium text-foreground">Ingreso potencial: S/{pendingTotal.toLocaleString()}</span>
+                </div>
+              )}
+              {treatments.length > 0 ? (
+                <div className="space-y-3">
+                  {treatments.map((t) => (
+                    <div key={t.id} className={`flex items-center justify-between p-4 rounded-[10px] border border-border ${t.status === "completed" ? "opacity-60" : ""}`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center ${t.status === "completed" ? "bg-success/10" : "bg-warning/10"}`}>
+                          {t.status === "completed" ? <Check className="w-5 h-5 text-success" /> : <DollarSign className="w-5 h-5 text-warning" />}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground text-[0.875rem]">{t.service}</p>
+                          <p className="text-[0.75rem] text-foreground-secondary">S/{t.estimated_amount.toLocaleString()}{t.notes ? ` · ${t.notes}` : ""}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={t.status === "completed" ? "success" : "warning"}>{t.status === "completed" ? "Completado" : "Pendiente"}</Badge>
+                        {t.status === "pending" && (<>
+                          <Button variant="ghost" size="sm" onClick={() => { setSaving(true); markAsCompleted(t.id).then(r => { setSaving(false); if (r.error) toast.error(r.error); else { toast.success("Completado"); refetchTreatments(); } }); }} disabled={saving}><Check className="w-4 h-4 text-success" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setSaving(true); removeTreatment(t.id).then(r => { setSaving(false); if (r.error) toast.error(r.error); else { toast.success("Eliminado"); refetchTreatments(); } }); }} disabled={saving}><Trash2 className="w-4 h-4 text-danger" /></Button>
+                        </>)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-[0.875rem] text-foreground-secondary text-center py-8">No hay tratamientos potenciales registrados</p>}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Paciente" size="lg">
-        <form onSubmit={handleEdit} className="space-y-4">
-          <div><label className={labelClass}>Nombre Completo *</label><input type="text" className={inputClass} value={editForm.full_name} onChange={e => setEditForm({ ...editForm, full_name: e.target.value })} /></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className={labelClass}>Email</label><input type="email" className={inputClass} value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} /></div>
-            <div><label className={labelClass}>Teléfono</label><input type="tel" className={inputClass} value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
-          </div>
-          <div><label className={labelClass}>Dirección</label><input type="text" className={inputClass} value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })} /></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className={labelClass}>Fecha de Nacimiento</label><input type="date" className={inputClass} value={editForm.birthdate} onChange={e => setEditForm({ ...editForm, birthdate: e.target.value })} /></div>
-            <div><label className={labelClass}>Grupo Sanguíneo</label>
-              <select className={inputClass} value={editForm.blood_type} onChange={e => setEditForm({ ...editForm, blood_type: e.target.value })}>
-                <option value="">Seleccionar</option>{BLOOD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select></div>
-          </div>
-          <div><label className={labelClass}>Alergias (separadas por coma)</label><input type="text" className={inputClass} value={editForm.allergies} onChange={e => setEditForm({ ...editForm, allergies: e.target.value })} /></div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Button variant="tertiary" size="md" onClick={() => setShowEditModal(false)} type="button">Cancelar</Button>
-            <Button variant="primary" size="md" type="submit" disabled={saving}>{saving ? "Guardando..." : "Guardar Cambios"}</Button>
-          </div>
-        </form>
-      </Modal>
-
+      {/* Delete Modal */}
       <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Confirmar Eliminación" size="sm">
         <div className="space-y-4">
           <p className="text-[0.875rem] text-foreground-secondary">¿Desactivar a <strong className="text-foreground">{patient.full_name}</strong>? No se eliminará permanentemente.</p>
@@ -345,6 +325,7 @@ export function PatientDetail() {
         </div>
       </Modal>
 
+      {/* Appointment Modal */}
       <Modal open={showAptModal} onClose={() => setShowAptModal(false)} title="Agendar Cita" size="md">
         <form onSubmit={handleCreateApt} className="space-y-4">
           <div>
@@ -368,11 +349,7 @@ export function PatientDetail() {
                 {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select></div>
           </div>
-          <div><label className={labelClass}>Estado</label>
-            <select className={inputClass} value={aptForm.status} onChange={e => setAptForm({ ...aptForm, status: e.target.value })}>
-              <option value="pending">Por confirmar</option><option value="confirmed">Confirmada</option><option value="in_transit">En camino</option>
-            </select></div>
-          <div><label className={labelClass}>Notas</label><textarea className={textareaClass} placeholder="Notas adicionales..." value={aptForm.notes} onChange={e => setAptForm({ ...aptForm, notes: e.target.value })} /></div>
+          <div><label className={labelClass}>Notas</label><textarea className={textareaClass} placeholder="Notas..." value={aptForm.notes} onChange={e => setAptForm({ ...aptForm, notes: e.target.value })} /></div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="tertiary" size="md" onClick={() => setShowAptModal(false)} type="button">Cancelar</Button>
             <Button variant="primary" size="md" type="submit" disabled={saving}>{saving ? "Agendando..." : "Agendar Cita"}</Button>
@@ -380,6 +357,7 @@ export function PatientDetail() {
         </form>
       </Modal>
 
+      {/* Consultation Modal */}
       <Modal open={showConModal} onClose={() => setShowConModal(false)} title="Registrar Evolución" size="lg">
         <form onSubmit={handleCreateCon} className="space-y-4">
           <div><label className={labelClass}>Título *</label><input type="text" className={inputClass} placeholder="Ej: Consulta de control" value={conForm.title} onChange={e => setConForm({ ...conForm, title: e.target.value })} /></div>
@@ -398,6 +376,7 @@ export function PatientDetail() {
         </form>
       </Modal>
 
+      {/* Treatment Modal */}
       <Modal open={showTreatmentModal} onClose={() => setShowTreatmentModal(false)} title="Agregar Tratamiento Potencial" size="md">
         <form onSubmit={handleCreateTreatment} className="space-y-4">
           <div><label className={labelClass}>Servicio *</label>
@@ -407,7 +386,7 @@ export function PatientDetail() {
           <div><label className={labelClass}>Monto Estimado (S/) *</label>
             <input type="number" step="0.01" min="0" className={inputClass} placeholder="Ej: 2500.00" value={treatmentForm.estimated_amount} onChange={e => setTreatmentForm({ ...treatmentForm, estimated_amount: e.target.value })} /></div>
           <div><label className={labelClass}>Notas</label>
-            <textarea className={textareaClass} placeholder="Ej: Molar inferior derecho, caries profunda..." value={treatmentForm.notes} onChange={e => setTreatmentForm({ ...treatmentForm, notes: e.target.value })} /></div>
+            <textarea className={textareaClass} placeholder="Ej: Molar inferior derecho..." value={treatmentForm.notes} onChange={e => setTreatmentForm({ ...treatmentForm, notes: e.target.value })} /></div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="tertiary" size="md" onClick={() => setShowTreatmentModal(false)} type="button">Cancelar</Button>
             <Button variant="primary" size="md" type="submit" disabled={saving}>{saving ? "Guardando..." : "Agregar Tratamiento"}</Button>
