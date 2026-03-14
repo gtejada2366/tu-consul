@@ -1,4 +1,4 @@
-import { Search, Bell, ChevronDown, LogOut, User, Menu } from "lucide-react";
+import { Search, Bell, ChevronDown, LogOut, User, Menu, Building2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "../contexts/auth-context";
@@ -49,7 +49,7 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
 
   return (
     <header className="h-14 md:h-16 bg-surface border-b border-border flex items-center justify-between px-3 md:px-6 sticky top-0 z-40">
-      {/* Left section: hamburger + search */}
+      {/* Left section: hamburger + clinic name + search */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {/* Hamburger - mobile only */}
         <button
@@ -58,6 +58,23 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
         >
           <Menu className="w-5 h-5 text-foreground-secondary" />
         </button>
+
+        {/* Clinic name + branch */}
+        <div className="flex items-center gap-2 flex-shrink-0 mr-2">
+          <div className="w-8 h-8 rounded-[8px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Building2 className="w-4 h-4 text-primary" />
+          </div>
+          <div className="hidden sm:block min-w-0">
+            <p className="text-[0.8125rem] font-semibold text-foreground leading-tight truncate max-w-[180px]">
+              {clinic?.name || "Tu Consul"}
+            </p>
+            {clinic?.address && (
+              <p className="text-[0.625rem] text-foreground-secondary leading-tight truncate max-w-[180px]">
+                {clinic.address}
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Search */}
         <form className="flex-1 max-w-md hidden sm:block" onSubmit={(e) => {
