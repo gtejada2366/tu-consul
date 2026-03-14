@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
-import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card";
+import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Loading } from "../components/ui/loading";
@@ -10,7 +10,6 @@ import {
   ChevronLeft, ChevronRight, Plus, Search,
   Calendar as CalendarIcon, Clock, User, X, FileText
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import { useAppointments, useWeekAppointments, useAppointmentMutations } from "../hooks/use-appointments";
 import { usePatients } from "../hooks/use-patients";
 import { useClinicUsers, useClinicSchedules } from "../hooks/use-clinic";
@@ -232,8 +231,8 @@ export function Agenda() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2"><CardContent className="p-0">
+      <div>
+        <Card><CardContent className="p-0">
           {(view === "day" ? loading : weekLoading) ? <Loading /> : view === "day" ? (
             /* ===== DAY VIEW ===== */
             <div className="overflow-y-auto max-h-[600px]">
@@ -356,48 +355,32 @@ export function Agenda() {
             </div>
           )}
         </CardContent></Card>
-
-        <div className={`${!selectedAppointment ? "hidden lg:block" : ""}`}>
-          <AnimatePresence mode="wait">
-            {selectedAppointment ? (
-              <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}>
-                <Card><CardHeader>
-                  <div className="flex items-start justify-between"><CardTitle>Detalle de Cita</CardTitle>
-                    <button onClick={() => setSelectedAppointment(null)} className="w-8 h-8 flex items-center justify-center rounded-[8px] hover:bg-surface-alt transition-colors"><X className="w-4 h-4 text-foreground-secondary" /></button>
-                  </div>
-                </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Paciente</p><p className="font-semibold text-foreground">{selectedAppointment.patient?.full_name || "-"}</p></div></div>
-                      <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Doctor</p><p className="font-semibold text-foreground">{selectedAppointment.doctor?.full_name || "-"}</p></div></div>
-                      <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><Clock className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Horario</p><p className="font-semibold text-foreground">{to12h(selectedAppointment.start_time)} ({selectedAppointment.duration_minutes} min)</p></div></div>
-                      <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><CalendarIcon className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Tipo</p><p className="font-semibold text-foreground">{selectedAppointment.type}</p></div></div>
-                      {selectedAppointment.notes && (
-                        <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Notas</p><p className="text-[0.875rem] text-foreground">{selectedAppointment.notes}</p></div></div>
-                      )}
-                    </div>
-                    <div className="pt-3 border-t border-border"><Badge variant={STATUS_COLORS[selectedAppointment.status]} className="mb-4">{STATUS_LABELS[selectedAppointment.status]}</Badge></div>
-                    <div className="space-y-2">
-                      <Link to={`/historia-clinica/${selectedAppointment.patient_id}`}><Button variant="primary" className="w-full">Ver Historia Clínica</Button></Link>
-                      <Button variant="tertiary" className="w-full" onClick={openEditModal}>Editar Cita</Button>
-                      {selectedAppointment.status !== "cancelled" && selectedAppointment.status !== "completed" && (
-                        <Button variant="danger" className="w-full" onClick={() => setShowCancelModal(true)}>Cancelar Cita</Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : (
-              <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <Card><div className="p-12 text-center">
-                  <CalendarIcon className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
-                  <p className="text-[0.875rem] text-foreground-secondary">Selecciona una cita para ver los detalles</p>
-                </div></Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
       </div>
+
+      {/* Appointment Detail Modal */}
+      <Modal open={!!selectedAppointment} onClose={() => setSelectedAppointment(null)} title="Detalle de Cita" size="sm">
+        {selectedAppointment && (
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Paciente</p><p className="font-semibold text-foreground">{selectedAppointment.patient?.full_name || "-"}</p></div></div>
+              <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Doctor</p><p className="font-semibold text-foreground">{selectedAppointment.doctor?.full_name || "-"}</p></div></div>
+              <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><Clock className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Horario</p><p className="font-semibold text-foreground">{to12h(selectedAppointment.start_time)} ({selectedAppointment.duration_minutes} min)</p></div></div>
+              <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><CalendarIcon className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Tipo</p><p className="font-semibold text-foreground">{selectedAppointment.type}</p></div></div>
+              {selectedAppointment.notes && (
+                <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Notas</p><p className="text-[0.875rem] text-foreground">{selectedAppointment.notes}</p></div></div>
+              )}
+            </div>
+            <div className="pt-3 border-t border-border"><Badge variant={STATUS_COLORS[selectedAppointment.status]} className="mb-4">{STATUS_LABELS[selectedAppointment.status]}</Badge></div>
+            <div className="space-y-2">
+              <Link to={`/historia-clinica/${selectedAppointment.patient_id}`}><Button variant="primary" className="w-full">Ver Historia Clínica</Button></Link>
+              <Button variant="tertiary" className="w-full" onClick={openEditModal}>Editar Cita</Button>
+              {selectedAppointment.status !== "cancelled" && selectedAppointment.status !== "completed" && (
+                <Button variant="danger" className="w-full" onClick={() => setShowCancelModal(true)}>Cancelar Cita</Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Create Appointment Modal */}
       <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)} title="Nueva Cita" size="md">
