@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { usePatients, usePatientMutations } from "../hooks/use-patients";
 import { inputClass, labelClass } from "../components/modals/form-classes";
-import { BLOOD_TYPES } from "../lib/constants";
+import { BLOOD_TYPES, INTEREST_TAGS, getTagColor } from "../lib/constants";
 
 export function Patients() {
   const [searchParams] = useSearchParams();
@@ -24,6 +24,7 @@ export function Patients() {
   const { createPatient } = usePatientMutations();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [tagFilter, setTagFilter] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -35,7 +36,8 @@ export function Patients() {
       (patient.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (patient.phone || "").includes(searchTerm);
     const matchesStatus = statusFilter === "all" || patient.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesTag = !tagFilter || (patient.interest_tags ?? []).includes(tagFilter);
+    return matchesSearch && matchesStatus && matchesTag;
   });
 
   function resetForm() {
@@ -81,6 +83,16 @@ export function Patients() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full h-10 pl-10 pr-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150" />
             </div>
+            <select
+              className="h-10 px-3 bg-surface-alt border border-border rounded-[10px] text-[0.8125rem] text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+            >
+              <option value="">Todos los tags</option>
+              {INTEREST_TAGS.map(tag => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
             <div className="flex items-center gap-1.5">
               {(["all", "active", "inactive"] as const).map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)}
@@ -105,6 +117,7 @@ export function Patients() {
                       <th className="text-left px-6 py-4 text-[0.75rem] font-medium text-foreground-secondary">Contacto</th>
                       <th className="text-left px-6 py-4 text-[0.75rem] font-medium text-foreground-secondary">Última Visita</th>
                       <th className="text-left px-6 py-4 text-[0.75rem] font-medium text-foreground-secondary">Visitas Totales</th>
+                      <th className="text-left px-6 py-4 text-[0.75rem] font-medium text-foreground-secondary">Tags</th>
                       <th className="text-left px-6 py-4 text-[0.75rem] font-medium text-foreground-secondary">Estado</th>
                       <th className="text-left px-6 py-4 text-[0.75rem] font-medium text-foreground-secondary">Acciones</th>
                     </tr>
@@ -131,6 +144,19 @@ export function Patients() {
                           </div>
                         </td>
                         <td className="px-6 py-4"><span className="text-[0.875rem] font-semibold text-foreground">{patient.total_visits}</span></td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {(patient.interest_tags ?? []).slice(0, 3).map(tag => {
+                              const color = getTagColor(tag);
+                              return (
+                                <span key={tag} className={`inline-block px-2 py-0.5 rounded-full text-[0.625rem] font-medium border ${color.bg} ${color.text} ${color.border}`}>{tag}</span>
+                              );
+                            })}
+                            {(patient.interest_tags ?? []).length > 3 && (
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[0.625rem] font-medium bg-gray-100 text-gray-600">+{(patient.interest_tags ?? []).length - 3}</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-4">
                           <Badge variant={patient.status === "active" ? "success" : "secondary"}>
                             {patient.status === "active" ? "Activo" : "Inactivo"}

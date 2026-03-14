@@ -7,17 +7,16 @@ import { Badge } from "../../components/ui/badge";
 import { Loading } from "../../components/ui/loading";
 import { Modal } from "../../components/ui/modal";
 import {
-  ArrowLeft, Mail, Phone, MapPin, Calendar, Clock, FileText, Trash2, AlertCircle,
-  DollarSign, Plus, Check, User, Heart, Stethoscope, Shield
+  ArrowLeft, Mail, Phone, MapPin, Calendar, FileText, Trash2, AlertCircle,
+  Plus, User, Heart, Stethoscope, Shield, Tag, X
 } from "lucide-react";
 import { usePatient, usePatientMutations } from "../../hooks/use-patients";
 import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use-appointments";
 import { useMedicalHistory, useConsultationMutations } from "../../hooks/use-medical-history";
 import { useClinicUsers } from "../../hooks/use-clinic";
-import { usePotentialTreatments, usePotentialTreatmentMutations } from "../../hooks/use-potential-treatments";
 import { inputClass, labelClass, textareaClass } from "../../components/modals/form-classes";
 import { SearchableSelect } from "../../components/ui/searchable-select";
-import { APPOINTMENT_TYPES, DURATION_OPTIONS, BILLING_SERVICES, STATUS_COLORS, STATUS_LABELS, toLocalDateStr, to12h } from "../../lib/constants";
+import { APPOINTMENT_TYPES, DURATION_OPTIONS, INTEREST_TAGS, getTagColor, STATUS_COLORS, STATUS_LABELS, toLocalDateStr, to12h } from "../../lib/constants";
 
 // Tab components
 import { PersonalDataTab } from "./tabs/personal-data-tab";
@@ -34,7 +33,7 @@ const TABS = [
   { id: "insurance", label: "Seguro", icon: Shield },
   { id: "appointments", label: "Citas", icon: Calendar },
   { id: "history", label: "Historia Clínica", icon: FileText },
-  { id: "billing", label: "Facturación", icon: DollarSign },
+  { id: "interests", label: "Intereses", icon: Tag },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -50,21 +49,16 @@ export function PatientDetail() {
   const { createConsultation } = useConsultationMutations();
   const { users: clinicUsers } = useClinicUsers();
   const doctors = clinicUsers.filter(u => u.role === "doctor" || u.role === "admin");
-  const { treatments, pending: pendingTreatments, pendingTotal, refetch: refetchTreatments } = usePotentialTreatments(id);
-  const { createTreatment, markAsCompleted, removeTreatment } = usePotentialTreatmentMutations();
-
   const recentHistory = consultations.filter(c => c.type === "consulta").slice(0, 5);
 
   const [activeTab, setActiveTab] = useState<TabId>("personal");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAptModal, setShowAptModal] = useState(false);
   const [showConModal, setShowConModal] = useState(false);
-  const [showTreatmentModal, setShowTreatmentModal] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [aptForm, setAptForm] = useState({ date: toLocalDateStr(new Date()), start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "", doctor_id: "" });
   const [conForm, setConForm] = useState({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
-  const [treatmentForm, setTreatmentForm] = useState({ service: BILLING_SERVICES[0], estimated_amount: "", notes: "" });
 
   async function handleSavePatient(updates: Record<string, unknown>) {
     if (!id) return { error: "No hay ID de paciente" };
@@ -112,15 +106,18 @@ export function PatientDetail() {
     }
   }
 
-  async function handleCreateTreatment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!id || !treatmentForm.service || !treatmentForm.estimated_amount) { toast.error("Servicio y monto son obligatorios"); return; }
+  async function handleToggleTag(tag: string) {
+    if (!id || !patient) return;
+    const currentTags = patient.interest_tags ?? [];
+    const newTags = currentTags.includes(tag)
+      ? currentTags.filter(t => t !== tag)
+      : [...currentTags, tag];
     setSaving(true);
-    const { error } = await createTreatment({ patient_id: id, service: treatmentForm.service, estimated_amount: parseFloat(treatmentForm.estimated_amount), notes: treatmentForm.notes.trim() || undefined });
+    const { error } = await updatePatient(id, { interest_tags: newTags });
     setSaving(false);
     if (error) { toast.error(error); } else {
-      toast.success("Tratamiento potencial agregado"); setShowTreatmentModal(false);
-      setTreatmentForm({ service: BILLING_SERVICES[0], estimated_amount: "", notes: "" }); refetchTreatments();
+      toast.success(currentTags.includes(tag) ? "Tag removido" : "Tag agregado");
+      refetchPatient();
     }
   }
 
@@ -269,46 +266,57 @@ export function PatientDetail() {
             </div>
           )}
 
-          {/* Billing tab */}
-          {activeTab === "billing" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-semibold text-foreground">Facturación Potencial</h3>
-                  {pendingTreatments.length > 0 && <Badge variant="warning">{pendingTreatments.length} pendiente{pendingTreatments.length !== 1 ? "s" : ""}</Badge>}
-                </div>
-                <Button variant="primary" size="sm" onClick={() => setShowTreatmentModal(true)}><Plus className="w-4 h-4 mr-1" />Agregar</Button>
+          {/* Interests / Marketing Tags tab */}
+          {activeTab === "interests" && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-semibold text-foreground mb-1">Intereses y Segmentación</h3>
+                <p className="text-[0.8125rem] text-foreground-secondary">Tags para campañas de marketing. Selecciona los intereses del paciente para segmentar tu público.</p>
               </div>
-              {pendingTreatments.length > 0 && (
-                <div className="flex items-center gap-2 p-3 rounded-[10px] bg-warning/10">
-                  <DollarSign className="w-5 h-5 text-warning" />
-                  <span className="text-[0.875rem] font-medium text-foreground">Ingreso potencial: S/{pendingTotal.toLocaleString()}</span>
+
+              {/* Current tags */}
+              {(patient.interest_tags ?? []).length > 0 && (
+                <div>
+                  <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Tags actuales</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(patient.interest_tags ?? []).map(tag => {
+                      const color = getTagColor(tag);
+                      return (
+                        <button
+                          key={tag}
+                          onClick={() => handleToggleTag(tag)}
+                          disabled={saving}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[0.8125rem] font-medium border transition-all hover:opacity-80 ${color.bg} ${color.text} ${color.border}`}
+                        >
+                          {tag}
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
-              {treatments.length > 0 ? (
-                <div className="space-y-3">
-                  {treatments.map((t) => (
-                    <div key={t.id} className={`flex items-center justify-between p-4 rounded-[10px] border border-border ${t.status === "completed" ? "opacity-60" : ""}`}>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center ${t.status === "completed" ? "bg-success/10" : "bg-warning/10"}`}>
-                          {t.status === "completed" ? <Check className="w-5 h-5 text-success" /> : <DollarSign className="w-5 h-5 text-warning" />}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-foreground text-[0.875rem]">{t.service}</p>
-                          <p className="text-[0.75rem] text-foreground-secondary">S/{t.estimated_amount.toLocaleString()}{t.notes ? ` · ${t.notes}` : ""}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={t.status === "completed" ? "success" : "warning"}>{t.status === "completed" ? "Completado" : "Pendiente"}</Badge>
-                        {t.status === "pending" && (<>
-                          <Button variant="ghost" size="sm" onClick={() => { setSaving(true); markAsCompleted(t.id).then(r => { setSaving(false); if (r.error) toast.error(r.error); else { toast.success("Completado"); refetchTreatments(); } }); }} disabled={saving}><Check className="w-4 h-4 text-success" /></Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setSaving(true); removeTreatment(t.id).then(r => { setSaving(false); if (r.error) toast.error(r.error); else { toast.success("Eliminado"); refetchTreatments(); } }); }} disabled={saving}><Trash2 className="w-4 h-4 text-danger" /></Button>
-                        </>)}
-                      </div>
-                    </div>
-                  ))}
+
+              {/* All available tags */}
+              <div>
+                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Agregar tags</p>
+                <div className="flex flex-wrap gap-2">
+                  {INTEREST_TAGS.filter(tag => !(patient.interest_tags ?? []).includes(tag)).map(tag => {
+                    const color = getTagColor(tag);
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => handleToggleTag(tag)}
+                        disabled={saving}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[0.8125rem] font-medium border transition-all hover:shadow-sm opacity-60 hover:opacity-100 ${color.bg} ${color.text} ${color.border}`}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        {tag}
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : <p className="text-[0.875rem] text-foreground-secondary text-center py-8">No hay tratamientos potenciales registrados</p>}
+              </div>
             </div>
           )}
         </CardContent>
@@ -376,23 +384,6 @@ export function PatientDetail() {
         </form>
       </Modal>
 
-      {/* Treatment Modal */}
-      <Modal open={showTreatmentModal} onClose={() => setShowTreatmentModal(false)} title="Agregar Tratamiento Potencial" size="md">
-        <form onSubmit={handleCreateTreatment} className="space-y-4">
-          <div><label className={labelClass}>Servicio *</label>
-            <select className={inputClass} value={treatmentForm.service} onChange={e => setTreatmentForm({ ...treatmentForm, service: e.target.value })}>
-              {BILLING_SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select></div>
-          <div><label className={labelClass}>Monto Estimado (S/) *</label>
-            <input type="number" step="0.01" min="0" className={inputClass} placeholder="Ej: 2500.00" value={treatmentForm.estimated_amount} onChange={e => setTreatmentForm({ ...treatmentForm, estimated_amount: e.target.value })} /></div>
-          <div><label className={labelClass}>Notas</label>
-            <textarea className={textareaClass} placeholder="Ej: Molar inferior derecho..." value={treatmentForm.notes} onChange={e => setTreatmentForm({ ...treatmentForm, notes: e.target.value })} /></div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Button variant="tertiary" size="md" onClick={() => setShowTreatmentModal(false)} type="button">Cancelar</Button>
-            <Button variant="primary" size="md" type="submit" disabled={saving}>{saving ? "Guardando..." : "Agregar Tratamiento"}</Button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }

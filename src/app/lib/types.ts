@@ -159,6 +159,8 @@ export interface Patient {
   last_dental_visit: string | null;
   dental_hygiene_frequency: string | null;
   dental_notes: string | null;
+  // Interest tags (marketing)
+  interest_tags: string[];
   // Filiation: Insurance
   insurance_company: string | null;
   insurance_plan: string | null;
