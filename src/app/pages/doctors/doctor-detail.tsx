@@ -237,8 +237,18 @@ export function DoctorDetail() {
           ) : (
             /* ===== WEEK VIEW ===== */
             <div className="overflow-x-auto">
-              <div className="min-w-[700px]">
-                <div className="grid grid-cols-7 border-b border-border sticky top-0 bg-surface z-10">
+              <div className="min-w-[780px]">
+                {/* Search */}
+                <div className="border-b border-border p-4">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-foreground-secondary" />
+                    <input type="text" placeholder="Buscar paciente..." value={agendaSearch} onChange={e => setAgendaSearch(e.target.value)}
+                      className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
+                  </div>
+                </div>
+                {/* Header: empty cell + 7 day columns */}
+                <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border sticky top-0 bg-surface z-10">
+                  <div className="border-r border-border" />
                   {weekDays.map((d, i) => {
                     const isToday = formatDate(d) === formatDate(new Date());
                     const isSelected = formatDate(d) === formatDate(currentDate);
@@ -252,41 +262,41 @@ export function DoctorDetail() {
                     );
                   })}
                 </div>
-                <div className="grid grid-cols-7 min-h-[400px]">
-                  {weekDays.map((d, i) => {
-                    const dateStr = formatDate(d);
-                    const dayApts = weekAppointments.filter(a => {
-                      if (a.date !== dateStr) return false;
-                      if (!agendaSearch.trim()) return true;
-                      const q = agendaSearch.toLowerCase();
-                      return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
-                    });
-                    const isToday = dateStr === formatDate(new Date());
-                    return (
-                      <div key={i} className={`border-r border-border last:border-r-0 p-1.5 space-y-1 ${isToday ? "bg-primary/5" : ""}`}>
-                        {dayApts.length > 0 ? dayApts.map(apt => {
-                          const tc = getTypeColor(apt.type);
-                          return (
-                            <div key={apt.id} onClick={() => setSelectedAppointment(apt)}
-                              className={`p-2 rounded-[8px] border-l-3 cursor-pointer text-left ${tc.bg} ${tc.border} hover:shadow-sm`}>
-                              <p className="text-[0.6875rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
-                              <p className="text-[0.625rem] text-foreground-secondary">{to12h(apt.start_time)}</p>
-                              <p className="text-[0.5625rem] text-foreground-secondary truncate">{apt.type}</p>
-                            </div>
-                          );
-                        }) : (
-                          <p className="text-[0.625rem] text-foreground-secondary text-center pt-4 opacity-50">Sin citas</p>
-                        )}
+                {/* Time grid: hour rows × day columns */}
+                <div className="overflow-y-auto max-h-[500px]">
+                  {timeSlots.map((time) => (
+                    <div key={time} className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border last:border-0">
+                      {/* Hour label */}
+                      <div className="border-r border-border py-2 px-1 text-[0.6875rem] text-foreground-secondary font-medium text-right pr-2">
+                        {to12h(time)}
                       </div>
-                    );
-                  })}
-                </div>
-                <div className="border-t border-border p-4">
-                  <div className="flex items-center gap-2">
-                    <Search className="w-4 h-4 text-foreground-secondary" />
-                    <input type="text" placeholder="Buscar paciente..." value={agendaSearch} onChange={e => setAgendaSearch(e.target.value)}
-                      className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
-                  </div>
+                      {/* Day cells for this time slot */}
+                      {weekDays.map((d, i) => {
+                        const dateStr = formatDate(d);
+                        const isToday = dateStr === formatDate(new Date());
+                        const slotApts = weekAppointments.filter(a => {
+                          if (a.date !== dateStr || a.start_time?.slice(0, 5) !== time) return false;
+                          if (!agendaSearch.trim()) return true;
+                          const q = agendaSearch.toLowerCase();
+                          return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+                        });
+                        return (
+                          <div key={i} className={`border-r border-border last:border-r-0 p-0.5 min-h-[48px] ${isToday ? "bg-primary/5" : ""}`}>
+                            {slotApts.map(apt => {
+                              const tc = getTypeColor(apt.type);
+                              return (
+                                <div key={apt.id} onClick={() => setSelectedAppointment(apt)}
+                                  className={`p-1.5 rounded-[6px] border-l-3 cursor-pointer text-left ${tc.bg} ${tc.border} hover:shadow-sm mb-0.5`}>
+                                  <p className="text-[0.625rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
+                                  <p className="text-[0.5625rem] text-foreground-secondary truncate">{apt.type}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

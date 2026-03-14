@@ -286,9 +286,16 @@ export function Agenda() {
           ) : (
             /* ===== WEEK VIEW ===== */
             <div className="overflow-x-auto">
-              <div className="min-w-[700px]">
-                {/* Week header */}
-                <div className="grid grid-cols-7 border-b border-border sticky top-0 bg-surface z-10">
+              <div className="min-w-[780px]">
+                {/* Search */}
+                <div className="border-b border-border p-4">
+                  <div className="flex items-center gap-2"><Search className="w-4 h-4 text-foreground-secondary" />
+                    <input type="text" placeholder="Buscar paciente o cita..." value={agendaSearch} onChange={e => setAgendaSearch(e.target.value)} className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
+                  </div>
+                </div>
+                {/* Header: hour col + 7 day columns */}
+                <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border sticky top-0 bg-surface z-10">
+                  <div className="border-r border-border" />
                   {weekDays.map((d, i) => {
                     const isToday = formatDate(d) === formatDate(new Date());
                     const isSelected = formatDate(d) === formatDate(currentDate);
@@ -297,60 +304,52 @@ export function Agenda() {
                         className={`py-3 text-center border-r border-border last:border-r-0 transition-colors hover:bg-surface-alt
                           ${isToday ? "bg-primary/5" : ""} ${isSelected ? "bg-primary/10" : ""}`}>
                         <p className="text-[0.6875rem] font-medium text-foreground-secondary">{WEEK_DAY_NAMES[i]}</p>
-                        <p className={`text-[1rem] font-semibold mt-0.5 ${isToday ? "text-primary" : "text-foreground"}`}>
-                          {d.getDate()}
-                        </p>
+                        <p className={`text-[1rem] font-semibold mt-0.5 ${isToday ? "text-primary" : "text-foreground"}`}>{d.getDate()}</p>
                       </button>
                     );
                   })}
                 </div>
-                {/* Week body */}
-                <div className="grid grid-cols-7 min-h-[400px]">
-                  {weekDays.map((d, i) => {
-                    const dateStr = formatDate(d);
-                    const dayApts = weekAppointments
-                      .filter(a => a.date === dateStr)
-                      .filter(a => {
-                        if (!agendaSearch.trim()) return true;
-                        const q = agendaSearch.toLowerCase();
-                        return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
-                      });
-                    const isToday = dateStr === formatDate(new Date());
-                    const isDayDropTarget = dropTarget === `date:${dateStr}`;
-                    return (
-                      <div key={i} className={`border-r border-border last:border-r-0 p-1.5 space-y-1 transition-colors
-                        ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15 ring-2 ring-inset ring-primary/30" : ""}`}
-                        onDragOver={e => handleDragOver(e, `date:${dateStr}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnDay(e, dateStr)}>
-                        {dayApts.length > 0 ? dayApts.map(apt => {
-                          const tc = getTypeColor(apt.type);
-                          return (
-                          <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
-                            onClick={() => setSelectedAppointment(apt)}
-                            className={`p-2 rounded-[8px] border-l-3 transition-all duration-150 text-left ${tc.bg} ${tc.border}
-                              ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
-                              ${draggedAptId === apt.id ? "opacity-50" : ""}`}>
-                            <p className="text-[0.6875rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
-                            <p className="text-[0.625rem] text-foreground-secondary">{to12h(apt.start_time)}</p>
-                            <p className="text-[0.5625rem] text-foreground-secondary truncate">{apt.type}</p>
-                          </div>
-                          );
-                        }) : (
-                          <p className={`text-[0.625rem] text-foreground-secondary text-center pt-4 opacity-50 ${isDayDropTarget ? "hidden" : ""}`}>Sin citas</p>
-                        )}
-                        {isDayDropTarget && dayApts.length === 0 && (
-                          <div className="border-2 border-dashed border-primary/40 rounded-[8px] p-3 text-center">
-                            <p className="text-[0.625rem] text-primary font-medium">Soltar aquí</p>
-                          </div>
-                        )}
+                {/* Time grid: hour rows × day columns */}
+                <div className="overflow-y-auto max-h-[500px]">
+                  {timeSlots.map((time) => (
+                    <div key={time} className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border last:border-0">
+                      {/* Hour label */}
+                      <div className="border-r border-border py-2 px-1 text-[0.6875rem] text-foreground-secondary font-medium text-right pr-2">
+                        {to12h(time)}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-              {/* Search bar for week view */}
-              <div className="border-t border-border p-4">
-                <div className="flex items-center gap-2"><Search className="w-4 h-4 text-foreground-secondary" />
-                  <input type="text" placeholder="Buscar paciente o cita..." value={agendaSearch} onChange={e => setAgendaSearch(e.target.value)} className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
+                      {/* Day cells for this time slot */}
+                      {weekDays.map((d, i) => {
+                        const dateStr = formatDate(d);
+                        const isToday = dateStr === formatDate(new Date());
+                        const isDayDropTarget = dropTarget === `date:${dateStr}`;
+                        const slotApts = weekAppointments.filter(a => {
+                          if (a.date !== dateStr || a.start_time?.slice(0, 5) !== time) return false;
+                          if (!agendaSearch.trim()) return true;
+                          const q = agendaSearch.toLowerCase();
+                          return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+                        });
+                        return (
+                          <div key={i} className={`border-r border-border last:border-r-0 p-0.5 min-h-[48px] transition-colors
+                            ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15" : ""}`}
+                            onDragOver={e => handleDragOver(e, `date:${dateStr}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnDay(e, dateStr)}>
+                            {slotApts.map(apt => {
+                              const tc = getTypeColor(apt.type);
+                              return (
+                                <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
+                                  onClick={() => setSelectedAppointment(apt)}
+                                  className={`p-1.5 rounded-[6px] border-l-3 transition-all duration-150 text-left ${tc.bg} ${tc.border}
+                                    ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
+                                    ${draggedAptId === apt.id ? "opacity-50" : ""} mb-0.5`}>
+                                  <p className="text-[0.625rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
+                                  <p className="text-[0.5625rem] text-foreground-secondary truncate">{apt.type}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
