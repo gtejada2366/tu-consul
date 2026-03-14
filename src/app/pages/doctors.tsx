@@ -4,7 +4,7 @@ import { Badge } from "../components/ui/badge";
 import { Loading } from "../components/ui/loading";
 import { EmptyState } from "../components/ui/empty-state";
 import {
-  Stethoscope, Calendar, Users as UsersIcon, Clock, ChevronRight, Search
+  Stethoscope, Calendar, Users as UsersIcon, Clock, Search
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
@@ -86,27 +86,22 @@ export function Doctors() {
                   <Card className="hover:shadow-md hover:border-primary/30 transition-all duration-150 cursor-pointer group">
                     <CardContent className="p-5">
                       {/* Doctor info */}
-                      <div className="flex items-start justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            {doc.avatar_url ? (
-                              <img src={doc.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover" />
-                            ) : (
-                              <span className="text-primary font-semibold text-[1rem]">
-                                {doc.full_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-foreground text-[0.9375rem] truncate">
-                              Dr. {doc.full_name}
-                            </p>
-                            <p className="text-[0.75rem] text-foreground-secondary truncate">
-                              {doc.specialty || "General"}
-                            </p>
-                          </div>
+                      <div className="flex flex-col items-center text-center mb-4">
+                        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                          {doc.avatar_url ? (
+                            <img src={doc.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover" />
+                          ) : (
+                            <span className="text-primary font-semibold text-[1.125rem]">
+                              {doc.full_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                            </span>
+                          )}
                         </div>
-                        <ChevronRight className="w-4 h-4 text-foreground-secondary opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1" />
+                        <p className="font-semibold text-foreground text-[0.9375rem]">
+                          Dr. {doc.full_name}
+                        </p>
+                        <p className="text-[0.75rem] text-foreground-secondary">
+                          {doc.specialty || "General"}
+                        </p>
                       </div>
 
                       {/* Stats */}
@@ -136,24 +131,23 @@ export function Doctors() {
 
                       {/* Next appointment */}
                       {doc.next_appointment ? (
-                        <div className="flex items-center gap-2 p-2.5 rounded-[8px] border border-border bg-surface">
+                        <div className="flex items-center justify-center gap-2 p-2.5 rounded-[8px] border border-border bg-surface">
                           <Clock className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
+                          <div className="text-center min-w-0">
                             <p className="text-[0.75rem] text-foreground font-medium truncate">
                               {doc.next_appointment.patient_name}
                             </p>
                             <p className="text-[0.6875rem] text-foreground-secondary">
                               {(() => {
-                                const [y, m, d] = doc.next_appointment!.date.split("-");
+                                const [, m, d] = doc.next_appointment!.date.split("-");
                                 const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
                                 return `${d} ${months[parseInt(m) - 1]}`;
                               })()} • {to12h(doc.next_appointment.start_time)}
                             </p>
                           </div>
-                          <Badge variant="warning">Próxima</Badge>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 p-2.5 rounded-[8px] bg-surface-alt">
+                        <div className="flex items-center justify-center gap-2 p-2.5 rounded-[8px] bg-surface-alt">
                           <Calendar className="w-3.5 h-3.5 text-foreground-secondary" />
                           <p className="text-[0.75rem] text-foreground-secondary">Sin citas próximas</p>
                         </div>
