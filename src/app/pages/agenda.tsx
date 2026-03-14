@@ -135,8 +135,8 @@ export function Agenda() {
   function goToDay(offset: number) { const d = new Date(currentDate); d.setDate(d.getDate() + (view === "week" ? offset * 7 : offset)); setCurrentDate(d); setSelectedAppointment(null); }
   function goToToday() { setCurrentDate(new Date()); setSelectedAppointment(null); }
 
-  function openCreateModal(time?: string) {
-    setAptForm({ patient_id: "", doctor_id: "", date: formatDate(currentDate), start_time: time || "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "" });
+  function openCreateModal(time?: string, date?: string) {
+    setAptForm({ patient_id: "", doctor_id: "", date: date || formatDate(currentDate), start_time: time || "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "" });
     setShowCreateModal(true);
   }
 
@@ -329,14 +329,15 @@ export function Agenda() {
                           return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
                         });
                         return (
-                          <div key={i} className={`border-r border-border last:border-r-0 p-0.5 min-h-[48px] transition-colors
-                            ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15" : ""}`}
+                          <div key={i} className={`border-r border-border last:border-r-0 p-0.5 min-h-[48px] transition-colors cursor-pointer
+                            ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15" : ""} ${slotApts.length === 0 ? "hover:bg-surface-alt" : ""}`}
+                            onClick={() => { if (slotApts.length === 0) openCreateModal(time, dateStr); }}
                             onDragOver={e => handleDragOver(e, `date:${dateStr}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnDay(e, dateStr)}>
                             {slotApts.map(apt => {
                               const tc = getTypeColor(apt.type);
                               return (
                                 <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
-                                  onClick={() => setSelectedAppointment(apt)}
+                                  onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
                                   className={`p-1.5 rounded-[6px] border-l-3 transition-all duration-150 text-left ${tc.bg} ${tc.border}
                                     ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
                                     ${draggedAptId === apt.id ? "opacity-50" : ""} mb-0.5`}>
