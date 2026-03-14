@@ -8,7 +8,7 @@ import { Loading } from "../../components/ui/loading";
 import { Modal } from "../../components/ui/modal";
 import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, FileText, Trash2, AlertCircle,
-  Plus, User, Heart, Stethoscope, Shield, Tag, X
+  Plus, User, Heart, Stethoscope, Shield, Tag, X, MessageCircle
 } from "lucide-react";
 import { usePatient, usePatientMutations } from "../../hooks/use-patients";
 import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use-appointments";
@@ -165,6 +165,14 @@ export function PatientDetail() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {(patient.phone || patient.phone_mobile) && (
+                <Button variant="tertiary" size="sm" onClick={() => {
+                  const phone = (patient.phone_mobile || patient.phone || "").replace(/[^0-9+]/g, "");
+                  const num = phone.startsWith("+") ? phone.slice(1) : phone;
+                  const name = patient.full_name.split(" ")[0];
+                  window.open(`https://wa.me/${num}?text=${encodeURIComponent(`Hola ${name}, te escribimos de la clínica.`)}`, "_blank");
+                }}><MessageCircle className="w-4 h-4 mr-1" />WhatsApp</Button>
+              )}
               <Button variant="primary" size="sm" onClick={() => setShowAptModal(true)}><Plus className="w-4 h-4 mr-1" />Cita</Button>
               <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}><Trash2 className="w-4 h-4" /></Button>
             </div>

@@ -6,6 +6,7 @@ import {
   Stethoscope,
   Users,
   FlaskConical,
+  MessageCircle,
   CreditCard,
   Settings,
   ChevronLeft,
@@ -21,6 +22,7 @@ const navigation = [
   { name: "Doctores", href: "/doctores", icon: Stethoscope },
   { name: "Pacientes", href: "/pacientes", icon: Users },
   { name: "Laboratorio", href: "/laboratorio", icon: FlaskConical },
+  { name: "Campañas", href: "/campanas", icon: MessageCircle },
   { name: "Facturación", href: "/facturacion", icon: CreditCard },
   { name: "Configuración", href: "/configuracion", icon: Settings },
 ];
