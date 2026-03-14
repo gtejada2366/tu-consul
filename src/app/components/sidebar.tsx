@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/auth-context";
 import {
   LayoutDashboard,
   Calendar,
+  Stethoscope,
   Users,
   CreditCard,
   Settings,
@@ -16,6 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Agenda", href: "/agenda", icon: Calendar },
+  { name: "Doctores", href: "/doctores", icon: Stethoscope },
   { name: "Pacientes", href: "/pacientes", icon: Users },
   { name: "Facturación", href: "/facturacion", icon: CreditCard },
   { name: "Configuración", href: "/configuracion", icon: Settings },
