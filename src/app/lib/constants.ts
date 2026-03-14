@@ -67,6 +67,49 @@ export const CHRONIC_CONDITIONS_OPTIONS = [
 ];
 export const RELATIONSHIPS = ["Padre/Madre", "Esposo/a", "Hijo/a", "Hermano/a", "Familiar", "Amigo/a", "Otro"];
 
+// Lab order constants
+export const LAB_ORDER_STATUSES: Record<string, string> = {
+  ordered: "Pedido",
+  in_progress: "En proceso",
+  received: "Recibido",
+};
+
+export const LAB_ORDER_STATUS_VARIANTS: Record<string, "warning" | "default" | "success"> = {
+  ordered: "warning",
+  in_progress: "default",
+  received: "success",
+};
+
+export const LAB_PAYMENT_STATUSES: Record<string, string> = {
+  pending: "Pendiente",
+  paid: "Pagado",
+};
+
+export const LAB_ITEMS = [
+  "Corona",
+  "Puente",
+  "Prótesis parcial",
+  "Prótesis total",
+  "Carilla",
+  "Incrustación",
+  "Placa oclusal",
+  "Retenedor",
+  "Provisorio",
+  "Otro",
+];
+
+export const LAB_MATERIALS = [
+  "Porcelana",
+  "Zirconio",
+  "Metal-porcelana",
+  "Acrílico",
+  "Resina",
+  "Disilicato de litio",
+  "Cromo-cobalto",
+  "Oro",
+  "Otro",
+];
+
 export const DURATION_OPTIONS = [
   { value: "15", label: "15 min" },
   { value: "30", label: "30 min" },

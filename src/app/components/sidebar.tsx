@@ -5,6 +5,7 @@ import {
   Calendar,
   Stethoscope,
   Users,
+  FlaskConical,
   CreditCard,
   Settings,
   ChevronLeft,
@@ -19,6 +20,7 @@ const navigation = [
   { name: "Agenda", href: "/agenda", icon: Calendar },
   { name: "Doctores", href: "/doctores", icon: Stethoscope },
   { name: "Pacientes", href: "/pacientes", icon: Users },
+  { name: "Laboratorio", href: "/laboratorio", icon: FlaskConical },
   { name: "Facturación", href: "/facturacion", icon: CreditCard },
   { name: "Configuración", href: "/configuracion", icon: Settings },
 ];

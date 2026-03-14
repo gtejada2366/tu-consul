@@ -51,6 +51,11 @@ export interface Database {
         Insert: Omit<Invoice, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<Invoice, "id">>;
       };
+      lab_orders: {
+        Row: LabOrder;
+        Insert: Omit<LabOrder, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<LabOrder, "id">>;
+      };
       clinic_schedules: {
         Row: ClinicSchedule;
         Insert: Omit<ClinicSchedule, "id">;
@@ -282,6 +287,32 @@ export interface NotificationPreferences {
   appointment_changes: boolean;
   patient_messages: boolean;
   system_updates: boolean;
+}
+
+export interface LabOrder {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  doctor_id: string;
+  lab_name: string;
+  item_description: string;
+  teeth: string | null;
+  material: string | null;
+  shade: string | null;
+  order_date: string;
+  due_date: string | null;
+  received_date: string | null;
+  status: "ordered" | "in_progress" | "received";
+  payment_status: "pending" | "paid";
+  cost: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LabOrderWithRelations extends LabOrder {
+  patient: Pick<Patient, "full_name">;
+  doctor: Pick<User, "full_name">;
 }
 
 export interface DashboardStats {
