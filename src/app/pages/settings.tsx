@@ -21,6 +21,7 @@ import { useAuth } from "../contexts/auth-context";
 import { useClinicUsers, useClinicSchedules, useNotificationPreferences, useClinicMutations, useUserMutations } from "../hooks/use-clinic";
 import { supabase } from "../lib/supabase";
 import { inputClass, labelClass } from "../components/modals/form-classes";
+import type { ClinicSchedule } from "../lib/types";
 
 // Tabs for admin
 const adminTabs = [
@@ -342,7 +343,7 @@ export function Settings() {
                             is_active: getScheduleValue(index, "is_active") as boolean,
                           };
                         });
-                        const { error } = await saveSchedules(updated as any);
+                        const { error } = await saveSchedules(updated as ClinicSchedule[]);
                         if (error) toast.error("Error al guardar: " + error);
                         else toast.success("Horarios guardados correctamente");
                       }}>

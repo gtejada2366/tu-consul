@@ -36,7 +36,7 @@ export function useDashboard() {
       const today = toLocalDateStr(new Date());
 
       // Fetch next 3 upcoming appointments (from today onwards, exclude finished/cancelled)
-      const { data: upcomingAppts } = await supabase
+      const { data: upcomingAppts, error: aptsError } = await supabase
         .from("appointments")
         .select("*, patient:patients(full_name), doctor:users(full_name)")
         .eq("clinic_id", clinic!.id)
@@ -47,14 +47,14 @@ export function useDashboard() {
         .order("start_time")
         .limit(3);
 
-      if (upcomingAppts) {
+      if (!aptsError && upcomingAppts) {
         setTodayAppointments(upcomingAppts as unknown as AppointmentWithRelations[]);
       }
 
       // Compute stats locally instead of relying on RPC
 
       // Total citas hoy (no canceladas)
-      const { count: totalTodayCount } = await supabase
+      const { count: totalTodayCount, error: todayError } = await supabase
         .from("appointments")
         .select("*", { count: "exact", head: true })
         .eq("clinic_id", clinic!.id)
@@ -62,7 +62,7 @@ export function useDashboard() {
         .neq("status", "cancelled");
 
       // Pacientes atendidos hoy (completed + in_progress)
-      const { count: attendedCount } = await supabase
+      const { count: attendedCount, error: attendedError } = await supabase
         .from("appointments")
         .select("*", { count: "exact", head: true })
         .eq("clinic_id", clinic!.id)
@@ -70,19 +70,19 @@ export function useDashboard() {
         .in("status", ["completed", "in_progress"]);
 
       // Occupancy: attended + in_progress vs total non-cancelled today
-      const totalToday = totalTodayCount || 0;
-      const attended = attendedCount || 0;
+      const totalToday = (!todayError && totalTodayCount) || 0;
+      const attended = (!attendedError && attendedCount) || 0;
       const occupancy = totalToday > 0 ? Math.round((attended / totalToday) * 100) : 0;
 
       // Revenue today
-      const { data: invoicesToday } = await supabase
+      const { data: invoicesToday, error: revenueError } = await supabase
         .from("invoices")
         .select("amount")
         .eq("clinic_id", clinic!.id)
         .eq("date", today)
         .eq("status", "paid");
 
-      const revenue = invoicesToday ? invoicesToday.reduce((sum, inv) => sum + ((inv as Record<string, unknown>).amount as number || 0), 0) : 0;
+      const revenue = (!revenueError && invoicesToday) ? invoicesToday.reduce((sum, inv) => sum + ((inv as Record<string, unknown>).amount as number || 0), 0) : 0;
 
       setStats({
         appointments_today: totalToday,
@@ -102,14 +102,14 @@ export function useDashboard() {
         d.setDate(d.getDate() + i);
         const dateStr = toLocalDateStr(d);
 
-        const { count } = await supabase
+        const { count, error: weekError } = await supabase
           .from("appointments")
           .select("*", { count: "exact", head: true })
           .eq("clinic_id", clinic!.id)
           .eq("date", dateStr)
           .neq("status", "cancelled");
 
-        weekly.push({ day: weekDays[i], appointments: count || 0 });
+        weekly.push({ day: weekDays[i], appointments: (!weekError && count) || 0 });
       }
 
       setWeeklyData(weekly);

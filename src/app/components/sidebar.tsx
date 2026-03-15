@@ -40,7 +40,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   // Close mobile menu on route change
   useEffect(() => {
     onClose();
-  }, [location.pathname]);
+  }, [location.pathname, onClose]);
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {

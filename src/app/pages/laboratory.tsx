@@ -93,7 +93,7 @@ export function Laboratory() {
       material: form.material || undefined,
       shade: form.shade.trim() || undefined,
       due_date: form.due_date || undefined,
-      cost: form.cost ? parseFloat(form.cost) : undefined,
+      cost: form.cost && !isNaN(parseFloat(form.cost)) && parseFloat(form.cost) > 0 ? parseFloat(form.cost) : undefined,
       notes: form.notes.trim() || undefined,
     });
     setSaving(false);
