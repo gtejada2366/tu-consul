@@ -87,7 +87,7 @@ CREATE TABLE appointments (
   start_time TIME NOT NULL,
   duration_minutes INT DEFAULT 30,
   type TEXT NOT NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'in_transit', 'in_progress', 'completed', 'cancelled')),
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -181,6 +181,57 @@ CREATE TABLE notification_preferences (
   system_updates BOOLEAN DEFAULT FALSE,
   UNIQUE(user_id)
 );
+
+-- ============================================================
+-- TABLA: clinic_services (Servicios y Precios)
+-- ============================================================
+CREATE TABLE clinic_services (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  clinic_id UUID REFERENCES clinics(id) NOT NULL,
+  name TEXT NOT NULL,
+  price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  min_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  category TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_clinic_services_clinic ON clinic_services(clinic_id);
+
+-- ============================================================
+-- TABLA: appointment_services (Servicios realizados por cita)
+-- ============================================================
+CREATE TABLE appointment_services (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  appointment_id UUID REFERENCES appointments(id) ON DELETE CASCADE NOT NULL,
+  clinic_id UUID REFERENCES clinics(id) NOT NULL,
+  service_id UUID REFERENCES clinic_services(id),
+  service_name TEXT NOT NULL,
+  price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  quantity INT DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_appointment_services_apt ON appointment_services(appointment_id);
+
+-- ============================================================
+-- TABLA: clinic_branches (Sedes / Sucursales)
+-- ============================================================
+CREATE TABLE clinic_branches (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  clinic_id UUID REFERENCES clinics(id) NOT NULL,
+  name TEXT NOT NULL,
+  address TEXT,
+  phone TEXT,
+  email TEXT,
+  is_main BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_clinic_branches_clinic ON clinic_branches(clinic_id);
 
 -- ============================================================
 -- VISTA: patients_with_stats

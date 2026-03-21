@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useParams, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { Card, CardHeader, CardContent, CardTitle } from "../../components/ui/card";
@@ -8,12 +8,16 @@ import { Loading } from "../../components/ui/loading";
 import { Modal } from "../../components/ui/modal";
 import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, FileText, Trash2, AlertCircle,
-  Plus, User, Heart, Stethoscope, Shield, Tag, X, MessageCircle
+  Plus, User, Heart, Stethoscope, Shield, Tag, X, MessageCircle, CreditCard,
+  Check, DollarSign
 } from "lucide-react";
 import { usePatient, usePatientMutations } from "../../hooks/use-patients";
 import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use-appointments";
 import { useMedicalHistory, useConsultationMutations } from "../../hooks/use-medical-history";
-import { useClinicUsers } from "../../hooks/use-clinic";
+import { useClinicUsers, useClinicServices } from "../../hooks/use-clinic";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../contexts/auth-context";
+import type { PotentialTreatment } from "../../lib/types";
 import { inputClass, labelClass, textareaClass } from "../../components/modals/form-classes";
 import { SearchableSelect } from "../../components/ui/searchable-select";
 import { APPOINTMENT_TYPES, DURATION_OPTIONS, INTEREST_TAGS, getTagColor, STATUS_COLORS, STATUS_LABELS, toLocalDateStr, to12h } from "../../lib/constants";
@@ -33,7 +37,8 @@ const TABS = [
   { id: "insurance", label: "Seguro", icon: Shield },
   { id: "appointments", label: "Citas", icon: Calendar },
   { id: "history", label: "Historia Clínica", icon: FileText },
-  { id: "interests", label: "Intereses", icon: Tag },
+  { id: "interests", label: "Intereses Marketing", icon: Tag },
+  { id: "potential", label: "Facturación Potencial", icon: CreditCard },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -48,14 +53,28 @@ export function PatientDetail() {
   const { createAppointment } = useAppointmentMutations();
   const { createConsultation } = useConsultationMutations();
   const { users: clinicUsers } = useClinicUsers();
+  const { services: clinicServices } = useClinicServices();
+  const { clinic } = useAuth();
+  const activeServices = clinicServices.filter(s => s.is_active);
   const doctors = clinicUsers.filter(u => u.role === "doctor" || u.role === "admin");
   const recentHistory = consultations.filter(c => c.type === "consulta").slice(0, 5);
+
+  const mountedRef = useRef(true);
+  useEffect(() => { return () => { mountedRef.current = false; }; }, []);
 
   const [activeTab, setActiveTab] = useState<TabId>("personal");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAptModal, setShowAptModal] = useState(false);
   const [showConModal, setShowConModal] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Potential billing state
+  const [potentialTreatments, setPotentialTreatments] = useState<PotentialTreatment[]>([]);
+  const [performedServices, setPerformedServices] = useState<{ id: string; service_name: string; price: number; quantity: number; date: string; created_at: string }[]>([]);
+  const [potentialLoading, setPotentialLoading] = useState(false);
+  const [showAddPotentialModal, setShowAddPotentialModal] = useState(false);
+  const [deletingTreatmentId, setDeletingTreatmentId] = useState<string | null>(null);
+  const [potentialForm, setPotentialForm] = useState({ service: "", estimated_amount: "", notes: "" });
 
   const [aptForm, setAptForm] = useState({ date: toLocalDateStr(new Date()), start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "", doctor_id: "" });
   const [conForm, setConForm] = useState({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
@@ -89,6 +108,22 @@ export function PatientDetail() {
   async function handleCreateCon(e: React.FormEvent) {
     e.preventDefault();
     if (!id || !conForm.title.trim()) { toast.error("El título es obligatorio"); return; }
+    const bp = conForm.blood_pressure.trim();
+    if (bp && !/^\d{2,3}\/\d{2,3}$/.test(bp)) {
+      toast.error("Presión arterial debe tener formato NN/NN (ej: 120/80)"); return;
+    }
+    const temp = conForm.temperature.trim().replace("°C", "").replace("°c", "").trim();
+    if (temp && (isNaN(Number(temp)) || Number(temp) < 30 || Number(temp) > 45)) {
+      toast.error("Temperatura debe ser un número entre 30 y 45 °C"); return;
+    }
+    const w = conForm.weight.trim().replace("kg", "").replace("Kg", "").trim();
+    if (w && (isNaN(Number(w)) || Number(w) <= 0 || Number(w) > 500)) {
+      toast.error("Peso debe ser un número válido en kg (1-500)"); return;
+    }
+    const h = conForm.height.trim().replace("cm", "").trim();
+    if (h && (isNaN(Number(h)) || Number(h) <= 0 || Number(h) > 300)) {
+      toast.error("Altura debe ser un número válido en cm (1-300)"); return;
+    }
     setSaving(true);
     const { error } = await createConsultation({
       patient_id: id, type: "consulta", title: conForm.title.trim(),
@@ -119,6 +154,95 @@ export function PatientDetail() {
       toast.success(currentTags.includes(tag) ? "Tag removido" : "Tag agregado");
       refetchPatient();
     }
+  }
+
+  // Fetch potential treatments + performed services
+  async function fetchPotentialTreatments() {
+    if (!id || !clinic) return;
+    setPotentialLoading(true);
+    const [treatmentsRes, servicesRes] = await Promise.all([
+      supabase
+        .from("potential_treatments")
+        .select("*")
+        .eq("patient_id", id)
+        .eq("clinic_id", clinic.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("appointment_services")
+        .select("id, service_name, price, quantity, created_at, appointment_id, appointments!inner(date, patient_id)")
+        .eq("clinic_id", clinic.id)
+        .eq("appointments.patient_id", id)
+        .order("created_at", { ascending: false }),
+    ]);
+    if (!mountedRef.current) return;
+    if (treatmentsRes.data) setPotentialTreatments(treatmentsRes.data as unknown as PotentialTreatment[]);
+    if (servicesRes.data) {
+      setPerformedServices(
+        (servicesRes.data as unknown as { id: string; service_name: string; price: number; quantity: number; created_at: string; appointments: { date: string } }[])
+          .map(s => ({ id: s.id, service_name: s.service_name, price: s.price, quantity: s.quantity, date: s.appointments.date, created_at: s.created_at }))
+      );
+    }
+    setPotentialLoading(false);
+  }
+
+  // Load potential treatments when tab is selected
+  function handleTabChange(tabId: TabId) {
+    setActiveTab(tabId);
+    if (tabId === "potential") fetchPotentialTreatments();
+  }
+
+  async function handleAddPotential(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !clinic || !potentialForm.service.trim()) {
+      toast.error("Selecciona un servicio"); return;
+    }
+    const estAmount = parseFloat(potentialForm.estimated_amount);
+    if (potentialForm.estimated_amount && (isNaN(estAmount) || estAmount < 0)) {
+      toast.error("El monto estimado debe ser un número válido"); return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("potential_treatments").insert({
+      clinic_id: clinic.id,
+      patient_id: id,
+      service: potentialForm.service.trim(),
+      estimated_amount: estAmount > 0 ? estAmount : 0,
+      notes: potentialForm.notes.trim() || null,
+      status: "pending",
+    } as Record<string, unknown>);
+    setSaving(false);
+    if (error) toast.error("Error al agregar el servicio");
+    else {
+      toast.success("Servicio agregado");
+      setShowAddPotentialModal(false);
+      setPotentialForm({ service: "", estimated_amount: "", notes: "" });
+      fetchPotentialTreatments();
+    }
+  }
+
+  async function togglePotentialStatus(treatment: PotentialTreatment) {
+    if (!clinic) return;
+    const newStatus = treatment.status === "completed" ? "pending" : "completed";
+    const { error } = await supabase
+      .from("potential_treatments")
+      .update({ status: newStatus, updated_at: new Date().toISOString() } as Record<string, unknown>)
+      .eq("id", treatment.id)
+      .eq("clinic_id", clinic.id);
+    if (error) toast.error("Error al actualizar el estado del servicio");
+    else {
+      toast.success(newStatus === "completed" ? "Marcado como realizado" : "Marcado como pendiente");
+      fetchPotentialTreatments();
+    }
+  }
+
+  async function deletePotentialTreatment(treatmentId: string) {
+    if (!clinic) return;
+    const { error } = await supabase
+      .from("potential_treatments")
+      .delete()
+      .eq("id", treatmentId)
+      .eq("clinic_id", clinic.id);
+    if (error) toast.error("Error al eliminar el servicio");
+    else { toast.success("Servicio eliminado"); fetchPotentialTreatments(); }
   }
 
   if (loading) return <Loading />;
@@ -186,7 +310,7 @@ export function PatientDetail() {
           {TABS.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`flex items-center gap-2 px-3 py-2 rounded-[10px] text-[0.8125rem] font-medium transition-all whitespace-nowrap
                 ${activeTab === tab.id
                   ? "bg-primary text-white shadow-sm"
@@ -327,8 +451,197 @@ export function PatientDetail() {
               </div>
             </div>
           )}
+          {/* Potential Billing tab */}
+          {activeTab === "potential" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-foreground">Facturación Potencial</h3>
+                  <p className="text-[0.75rem] text-foreground-secondary mt-0.5">Servicios pendientes y realizados para este paciente</p>
+                </div>
+                <Button variant="primary" size="sm" onClick={() => {
+                  setPotentialForm({ service: "", estimated_amount: "", notes: "" });
+                  setShowAddPotentialModal(true);
+                }}><Plus className="w-4 h-4 mr-1" />Agregar</Button>
+              </div>
+
+              {potentialLoading ? <Loading /> : (
+                <>
+                  {/* Potential treatments checklist */}
+                  {potentialTreatments.length === 0 && performedServices.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CreditCard className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
+                      <p className="text-[0.875rem] text-foreground-secondary mb-1">No hay servicios registrados</p>
+                      <p className="text-[0.75rem] text-foreground-secondary">Agrega servicios que el paciente necesita o se ha realizado</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Summary */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="p-3 bg-warning/5 border border-warning/20 rounded-[10px] text-center">
+                          <p className="text-[1.25rem] font-bold text-warning">{potentialTreatments.filter(t => t.status === "pending").length}</p>
+                          <p className="text-[0.6875rem] text-foreground-secondary">Pendientes</p>
+                        </div>
+                        <div className="p-3 bg-success/5 border border-success/20 rounded-[10px] text-center">
+                          <p className="text-[1.25rem] font-bold text-success">{potentialTreatments.filter(t => t.status === "completed").length}</p>
+                          <p className="text-[0.6875rem] text-foreground-secondary">Completados</p>
+                        </div>
+                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-[10px] text-center">
+                          <p className="text-[1.25rem] font-bold text-primary">{performedServices.length}</p>
+                          <p className="text-[0.6875rem] text-foreground-secondary">Servicios Facturados</p>
+                        </div>
+                      </div>
+
+                      {/* Potential treatments list */}
+                      {potentialTreatments.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-[0.8125rem] font-semibold text-foreground-secondary uppercase tracking-wide">Servicios Planificados</h4>
+                          {potentialTreatments.map((t) => (
+                            <div key={t.id} className={`flex items-center gap-3 p-4 rounded-[10px] border transition-all ${t.status === "completed" ? "border-success/30 bg-success/5" : "border-border"}`}>
+                              <button
+                                onClick={() => togglePotentialStatus(t)}
+                                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
+                                  ${t.status === "completed" ? "bg-success border-success text-white" : "border-border hover:border-primary"}`}
+                              >
+                                {t.status === "completed" && <Check className="w-3.5 h-3.5" />}
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-[0.875rem] font-medium ${t.status === "completed" ? "text-foreground-secondary line-through" : "text-foreground"}`}>
+                                  {t.service}
+                                </p>
+                                {t.notes && <p className="text-[0.75rem] text-foreground-secondary truncate">{t.notes}</p>}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className={`text-[0.875rem] font-semibold ${t.status === "completed" ? "text-success" : "text-primary"}`}>
+                                  S/{Number(t.estimated_amount).toFixed(2)}
+                                </span>
+                                <button onClick={() => setDeletingTreatmentId(t.id)} aria-label="Eliminar servicio"
+                                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-danger/10 text-foreground-secondary hover:text-danger transition-colors">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Total Potencial */}
+                          <div className="flex items-center justify-between p-4 bg-primary/5 rounded-[10px] border border-primary/20 mt-2">
+                            <span className="text-[0.875rem] font-semibold text-foreground">Total Pendiente</span>
+                            <span className="text-[1.125rem] font-bold text-primary">
+                              S/{potentialTreatments.filter(t => t.status === "pending").reduce((sum, t) => sum + Number(t.estimated_amount), 0).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Performed services history */}
+                      {performedServices.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-[0.8125rem] font-semibold text-foreground-secondary uppercase tracking-wide">Historial de Servicios Realizados</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[0.8125rem]">
+                              <thead>
+                                <tr className="border-b border-border text-left">
+                                  <th className="py-2 pr-4 font-semibold text-foreground-secondary">Servicio</th>
+                                  <th className="py-2 pr-4 font-semibold text-foreground-secondary text-right">Monto</th>
+                                  <th className="py-2 font-semibold text-foreground-secondary text-right">Fecha</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {performedServices.map(s => (
+                                  <tr key={s.id} className="border-b border-border/50 last:border-0">
+                                    <td className="py-3 pr-4">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-success flex-shrink-0" />
+                                        <span className="text-foreground font-medium">{s.service_name}</span>
+                                        {s.quantity > 1 && <Badge variant="default">x{s.quantity}</Badge>}
+                                      </div>
+                                    </td>
+                                    <td className="py-3 pr-4 text-right font-semibold text-success whitespace-nowrap">
+                                      S/{(Number(s.price) * s.quantity).toFixed(2)}
+                                    </td>
+                                    <td className="py-3 text-right text-foreground-secondary whitespace-nowrap">
+                                      {s.date.split("-").reverse().join("/")}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Total Facturado */}
+                          <div className="flex items-center justify-between p-4 bg-success/5 rounded-[10px] border border-success/20 mt-2">
+                            <span className="text-[0.875rem] font-semibold text-foreground">Total Facturado</span>
+                            <span className="text-[1.125rem] font-bold text-success">
+                              S/{performedServices.reduce((sum, s) => sum + Number(s.price) * s.quantity, 0).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Add Potential Treatment Modal */}
+      <Modal open={showAddPotentialModal} onClose={() => setShowAddPotentialModal(false)} title="Agregar Servicio Potencial" size="md">
+        <form onSubmit={handleAddPotential} className="space-y-4">
+          <div>
+            <label className={labelClass}>Servicio *</label>
+            <select className={inputClass} value={potentialForm.service}
+              onChange={e => {
+                const svc = activeServices.find(s => s.name === e.target.value);
+                setPotentialForm({
+                  ...potentialForm,
+                  service: e.target.value,
+                  estimated_amount: svc ? String(svc.price) : potentialForm.estimated_amount,
+                });
+              }}>
+              <option value="">Seleccionar servicio...</option>
+              {activeServices.map(s => (
+                <option key={s.id} value={s.name}>{s.name} — S/{Number(s.price).toFixed(2)}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Monto Estimado (S/)</label>
+            <input type="number" step="0.01" min="0" className={inputClass} placeholder="0.00"
+              value={potentialForm.estimated_amount}
+              onChange={e => setPotentialForm({ ...potentialForm, estimated_amount: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>Notas</label>
+            <textarea className={textareaClass} placeholder="Observaciones..."
+              value={potentialForm.notes}
+              onChange={e => setPotentialForm({ ...potentialForm, notes: e.target.value })} />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="tertiary" size="md" onClick={() => setShowAddPotentialModal(false)} type="button">Cancelar</Button>
+            <Button variant="primary" size="md" type="submit" disabled={saving}>{saving ? "Guardando..." : "Agregar"}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Confirm Delete Potential Treatment */}
+      <Modal open={!!deletingTreatmentId} onClose={() => setDeletingTreatmentId(null)} title="Eliminar Servicio Potencial" size="sm">
+        <div className="space-y-4">
+          <p className="text-[0.875rem] text-foreground-secondary">
+            ¿Estás seguro de que deseas eliminar este servicio potencial? Esta acción no se puede deshacer.
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="tertiary" size="md" onClick={() => setDeletingTreatmentId(null)}>Cancelar</Button>
+            <Button variant="danger" size="md" onClick={async () => {
+              if (deletingTreatmentId) {
+                await deletePotentialTreatment(deletingTreatmentId);
+                setDeletingTreatmentId(null);
+              }
+            }}>Eliminar</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Delete Modal */}
       <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Confirmar Eliminación" size="sm">

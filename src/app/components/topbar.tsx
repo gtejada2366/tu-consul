@@ -54,6 +54,7 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
         {/* Hamburger - mobile only */}
         <button
           onClick={onMenuToggle}
+          aria-label="Abrir menú de navegación"
           className="md:hidden w-10 h-10 flex items-center justify-center rounded-[10px] hover:bg-surface-alt transition-colors flex-shrink-0"
         >
           <Menu className="w-5 h-5 text-foreground-secondary" />
@@ -98,7 +99,8 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
 
         {/* Mobile search icon */}
         <button className="sm:hidden w-10 h-10 flex items-center justify-center rounded-[10px] hover:bg-surface-alt transition-colors flex-shrink-0"
-          onClick={() => navigate("/pacientes")}>
+          onClick={() => navigate("/pacientes")}
+          aria-label="Buscar pacientes">
           <Search className="w-5 h-5 text-foreground-secondary" />
         </button>
       </div>
@@ -120,6 +122,8 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
               setShowNotifications(!showNotifications);
               setShowUserMenu(false);
             }}
+            aria-label="Notificaciones"
+            aria-expanded={showNotifications}
             className="relative w-10 h-10 flex items-center justify-center rounded-[10px]
               hover:bg-surface-alt transition-colors"
           >
@@ -129,6 +133,7 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
           {/* Notification Dropdown */}
           {showNotifications && (
             <div
+              role="menu"
               className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 bg-surface border border-border
                 rounded-[12px] shadow-lg overflow-hidden z-50 max-w-[320px]"
             >
@@ -154,6 +159,8 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
               setShowUserMenu(!showUserMenu);
               setShowNotifications(false);
             }}
+            aria-label="Menú de usuario"
+            aria-expanded={showUserMenu}
             className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 rounded-[10px] hover:bg-surface-alt transition-colors"
           >
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
@@ -173,6 +180,7 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
           {/* User Profile Dropdown */}
           {showUserMenu && (
             <div
+              role="menu"
               className="absolute right-0 top-full mt-2 w-52 bg-surface border border-border
                 rounded-[12px] shadow-lg overflow-hidden z-50"
             >

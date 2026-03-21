@@ -95,22 +95,25 @@ export function useDashboard() {
       const weekStart = new Date();
       weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
       const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-      const weekly: WeeklyData[] = [];
 
-      for (let i = 0; i < 7; i++) {
+      const weeklyPromises = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(weekStart);
         d.setDate(d.getDate() + i);
         const dateStr = toLocalDateStr(d);
 
-        const { count, error: weekError } = await supabase
+        return supabase
           .from("appointments")
           .select("*", { count: "exact", head: true })
           .eq("clinic_id", clinic!.id)
           .eq("date", dateStr)
-          .neq("status", "cancelled");
+          .neq("status", "cancelled")
+          .then(({ count, error: weekError }) => ({
+            day: weekDays[i],
+            appointments: (!weekError && count) || 0,
+          }));
+      });
 
-        weekly.push({ day: weekDays[i], appointments: (!weekError && count) || 0 });
-      }
+      const weekly = await Promise.all(weeklyPromises);
 
       setWeeklyData(weekly);
       setLoading(false);

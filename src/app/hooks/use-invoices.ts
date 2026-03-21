@@ -19,7 +19,9 @@ export function useInvoices() {
       .eq("clinic_id", clinic.id)
       .order("date", { ascending: false });
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error fetching invoices:", error.message);
+    } else if (data) {
       setInvoices(data as unknown as InvoiceWithPatient[]);
     }
     setLoading(false);

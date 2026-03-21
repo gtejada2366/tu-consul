@@ -254,6 +254,7 @@ export function Campaigns() {
                       placeholder="Buscar paciente..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
+                      aria-label="Buscar pacientes para campaña"
                       className="w-full h-10 pl-10 pr-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150"
                     />
                   </div>

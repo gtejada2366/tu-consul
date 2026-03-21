@@ -47,6 +47,25 @@ export function MedicalHistory() {
       else if (formType === "lab") title = "Resultados de Laboratorio";
       else { toast.error("El título es obligatorio"); return; }
     }
+    // Validate vital signs
+    if (formType === "consulta") {
+      const bp = conForm.blood_pressure.trim();
+      if (bp && !/^\d{2,3}\/\d{2,3}$/.test(bp)) {
+        toast.error("Presión arterial debe tener formato NN/NN (ej: 120/80)"); return;
+      }
+      const temp = conForm.temperature.trim().replace("°C", "").replace("°c", "").trim();
+      if (temp && (isNaN(Number(temp)) || Number(temp) < 30 || Number(temp) > 45)) {
+        toast.error("Temperatura debe ser un número entre 30 y 45 °C"); return;
+      }
+      const w = conForm.weight.trim().replace("kg", "").replace("Kg", "").trim();
+      if (w && (isNaN(Number(w)) || Number(w) <= 0 || Number(w) > 500)) {
+        toast.error("Peso debe ser un número válido en kg (1-500)"); return;
+      }
+      const h = conForm.height.trim().replace("cm", "").trim();
+      if (h && (isNaN(Number(h)) || Number(h) <= 0 || Number(h) > 300)) {
+        toast.error("Altura debe ser un número válido en cm (1-300)"); return;
+      }
+    }
     setSaving(true);
     const { error } = await createConsultation({
       patient_id: id, type: formType, title,
@@ -97,7 +116,7 @@ export function MedicalHistory() {
             <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Edad</p><p className="text-[0.875rem] font-semibold text-foreground">{patient.age ?? "-"} años</p></div>
             <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Grupo Sanguíneo</p><p className="text-[0.875rem] font-semibold text-foreground">{patient.blood_type || "-"}</p></div>
             <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Alergias</p>
-              <div className="flex flex-wrap gap-1">{patient.allergies.length > 0 ? patient.allergies.map((a, i) => <Badge key={i} variant="danger" className="text-[0.65rem]">{a}</Badge>) : <span className="text-[0.875rem] text-foreground-secondary">Ninguna</span>}</div></div>
+              <div className="flex flex-wrap gap-1">{patient.allergies.length > 0 ? patient.allergies.map((a) => <Badge key={a} variant="danger" className="text-[0.65rem]">{a}</Badge>) : <span className="text-[0.875rem] text-foreground-secondary">Ninguna</span>}</div></div>
             <div><p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">Total de Consultas</p><p className="text-[0.875rem] font-semibold text-foreground">{patient.total_visits}</p></div>
           </div>
         </div></Card>
@@ -191,7 +210,7 @@ export function MedicalHistory() {
             <div className="space-y-3">
               <label className={labelClass}>Medicamentos</label>
               {prescriptions.map((p, idx) => (
-                <div key={idx} className="flex gap-2 items-start">
+                <div key={`rx-${idx}`} className="flex gap-2 items-start">
                   <div className="flex-1 space-y-2">
                     <input type="text" className={inputClass} placeholder="Nombre del medicamento" value={p.medication_name} onChange={e => { const arr = [...prescriptions]; arr[idx] = { ...arr[idx], medication_name: e.target.value }; setPrescriptions(arr); }} />
                     <div className="grid grid-cols-2 gap-2">
@@ -211,7 +230,7 @@ export function MedicalHistory() {
             <div className="space-y-3">
               <label className={labelClass}>Estudios</label>
               {labResults.map((r, idx) => (
-                <div key={idx} className="flex gap-2 items-start">
+                <div key={`lab-${idx}`} className="flex gap-2 items-start">
                   <div className="flex-1 space-y-2">
                     <input type="text" className={inputClass} placeholder="Nombre del estudio" value={r.test_name} onChange={e => { const arr = [...labResults]; arr[idx] = { ...arr[idx], test_name: e.target.value }; setLabResults(arr); }} />
                     <div className="grid grid-cols-2 gap-2">

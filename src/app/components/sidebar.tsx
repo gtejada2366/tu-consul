@@ -1,13 +1,13 @@
 import { Link, useLocation } from "react-router";
 import { useAuth } from "../contexts/auth-context";
 import {
-  LayoutDashboard,
   Calendar,
   Stethoscope,
   Users,
   FlaskConical,
   MessageCircle,
   CreditCard,
+  FileCheck,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -17,13 +17,13 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Agenda", href: "/agenda", icon: Calendar },
   { name: "Doctores", href: "/doctores", icon: Stethoscope },
   { name: "Pacientes", href: "/pacientes", icon: Users },
   { name: "Laboratorio", href: "/laboratorio", icon: FlaskConical },
   { name: "Campañas", href: "/campanas", icon: MessageCircle },
   { name: "Facturación", href: "/facturacion", icon: CreditCard },
+  { name: "Comprobantes", href: "/comprobantes", icon: FileCheck },
   { name: "Configuración", href: "/configuracion", icon: Settings },
 ];
 
@@ -79,6 +79,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         {/* Close button - mobile only */}
         <button
           onClick={onClose}
+          aria-label="Cerrar menú"
           className="md:hidden w-8 h-8 flex items-center justify-center rounded-[10px] hover:bg-surface-alt transition-colors"
         >
           <X className="w-5 h-5 text-foreground-secondary" />
@@ -88,7 +89,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 py-6">
         <ul className="space-y-1 px-3">
-          {navigation.filter(item => item.href !== "/facturacion" || user?.role === "admin").map((item) => {
+          {navigation.filter(item => (item.href !== "/facturacion" && item.href !== "/comprobantes") || user?.role === "admin").map((item) => {
             const isActive = location.pathname === item.href ||
               (item.href !== "/" && location.pathname.startsWith(item.href));
 
@@ -134,6 +135,8 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         {/* Collapse Button - desktop only */}
         <button
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expandir menú lateral" : "Colapsar menú lateral"}
+          aria-expanded={!collapsed}
           className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-surface border border-border
             flex items-center justify-center hover:bg-surface-alt transition-colors"
         >

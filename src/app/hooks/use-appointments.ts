@@ -20,7 +20,9 @@ export function useAppointments(date: string) {
       .eq("date", date)
       .order("start_time");
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error fetching appointments:", error.message);
+    } else if (data) {
       setAppointments(data as unknown as AppointmentWithRelations[]);
     }
     setLoading(false);
@@ -51,7 +53,9 @@ export function useWeekAppointments(startDate: string, endDate: string) {
       .order("date")
       .order("start_time");
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error fetching week appointments:", error.message);
+    } else if (data) {
       setAppointments(data as unknown as AppointmentWithRelations[]);
     }
     setLoading(false);
@@ -77,7 +81,7 @@ export function usePatientAppointments(patientId: string | undefined) {
 
     const today = toLocalDateStr(new Date());
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("appointments")
       .select("*, patient:patients(full_name), doctor:users(full_name)")
       .eq("patient_id", patientId)
@@ -87,7 +91,9 @@ export function usePatientAppointments(patientId: string | undefined) {
       .order("date")
       .order("start_time");
 
-    if (data) {
+    if (error) {
+      console.error("Error fetching patient appointments:", error.message);
+    } else if (data) {
       setUpcoming(data as unknown as AppointmentWithRelations[]);
     }
     setLoading(false);

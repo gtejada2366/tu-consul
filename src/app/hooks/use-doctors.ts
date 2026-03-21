@@ -41,34 +41,40 @@ export function useDoctors() {
     const weekStart = toLocalDateStr(monday);
     const weekEnd = toLocalDateStr(sunday);
 
-    // Get all appointments for this week in one query
-    const { data: weekApts } = await supabase
-      .from("appointments")
-      .select("id, doctor_id, date, start_time, patient_id, status, patient:patients(full_name)")
-      .eq("clinic_id", clinic.id)
-      .gte("date", weekStart)
-      .lte("date", weekEnd)
-      .neq("status", "cancelled")
-      .order("date")
-      .order("start_time");
+    // Fetch all 3 appointment queries in parallel
+    const [weekAptsResult, upcomingAptsResult, allAptsResult] = await Promise.all([
+      supabase
+        .from("appointments")
+        .select("id, doctor_id, date, start_time, patient_id, status, patient:patients(full_name)")
+        .eq("clinic_id", clinic.id)
+        .gte("date", weekStart)
+        .lte("date", weekEnd)
+        .neq("status", "cancelled")
+        .order("date")
+        .order("start_time"),
+      supabase
+        .from("appointments")
+        .select("doctor_id, date, start_time, patient:patients(full_name)")
+        .eq("clinic_id", clinic.id)
+        .gte("date", today)
+        .neq("status", "cancelled")
+        .neq("status", "completed")
+        .order("date")
+        .order("start_time"),
+      supabase
+        .from("appointments")
+        .select("doctor_id, patient_id")
+        .eq("clinic_id", clinic.id)
+        .neq("status", "cancelled"),
+    ]);
 
-    // Get upcoming appointments (next appointment per doctor)
-    const { data: upcomingApts } = await supabase
-      .from("appointments")
-      .select("doctor_id, date, start_time, patient:patients(full_name)")
-      .eq("clinic_id", clinic.id)
-      .gte("date", today)
-      .neq("status", "cancelled")
-      .neq("status", "completed")
-      .order("date")
-      .order("start_time");
+    if (weekAptsResult.error) console.error("Error fetching week appointments:", weekAptsResult.error.message);
+    if (upcomingAptsResult.error) console.error("Error fetching upcoming appointments:", upcomingAptsResult.error.message);
+    if (allAptsResult.error) console.error("Error fetching all appointments:", allAptsResult.error.message);
 
-    // Get unique patient counts per doctor
-    const { data: allApts } = await supabase
-      .from("appointments")
-      .select("doctor_id, patient_id")
-      .eq("clinic_id", clinic.id)
-      .neq("status", "cancelled");
+    const weekApts = weekAptsResult.data;
+    const upcomingApts = upcomingAptsResult.data;
+    const allApts = allAptsResult.data;
 
     const doctorsWithStats: DoctorWithStats[] = (users as unknown as User[]).map(doc => {
       const docWeekApts = (weekApts || []).filter(a => (a as Record<string, unknown>).doctor_id === doc.id);

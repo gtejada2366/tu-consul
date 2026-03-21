@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase, supabaseNoSession } from "../lib/supabase";
 import { useAuth } from "../contexts/auth-context";
-import type { User, ClinicSchedule, NotificationPreferences } from "../lib/types";
+import type { User, ClinicService, ClinicBranch, ClinicSchedule, NotificationPreferences } from "../lib/types";
 
 export function useClinicUsers() {
   const { clinic } = useAuth();
@@ -99,6 +99,142 @@ export function useNotificationPreferences() {
   }
 
   return { prefs, loading, updatePrefs };
+}
+
+export function useClinicServices() {
+  const { clinic } = useAuth();
+  const [services, setServices] = useState<ClinicService[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchServices = useCallback(async () => {
+    if (!clinic) return;
+    setLoading(true);
+
+    const { data } = await supabase
+      .from("clinic_services")
+      .select("*")
+      .eq("clinic_id", clinic.id)
+      .order("name");
+
+    if (data) setServices(data as unknown as ClinicService[]);
+    setLoading(false);
+  }, [clinic]);
+
+  useEffect(() => {
+    fetchServices();
+  }, [fetchServices]);
+
+  async function createService(data: { name: string; price: number; min_price?: number; category?: string }) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    const { error } = await supabase
+      .from("clinic_services")
+      .insert({
+        clinic_id: clinic.id,
+        name: data.name,
+        price: data.price,
+        min_price: data.min_price || 0,
+        category: data.category || null,
+        is_active: true,
+      } as Record<string, unknown>);
+
+    return { error: error?.message || null };
+  }
+
+  async function updateService(id: string, data: { name?: string; price?: number; min_price?: number; category?: string }) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    const { error } = await supabase
+      .from("clinic_services")
+      .update({ ...data, updated_at: new Date().toISOString() } as Record<string, unknown>)
+      .eq("id", id)
+      .eq("clinic_id", clinic.id);
+
+    return { error: error?.message || null };
+  }
+
+  async function toggleServiceActive(id: string, isActive: boolean) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    const { error } = await supabase
+      .from("clinic_services")
+      .update({ is_active: isActive, updated_at: new Date().toISOString() } as Record<string, unknown>)
+      .eq("id", id)
+      .eq("clinic_id", clinic.id);
+
+    return { error: error?.message || null };
+  }
+
+  return { services, loading, refetch: fetchServices, createService, updateService, toggleServiceActive };
+}
+
+export function useClinicBranches() {
+  const { clinic } = useAuth();
+  const [branches, setBranches] = useState<ClinicBranch[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchBranches = useCallback(async () => {
+    if (!clinic) return;
+    setLoading(true);
+
+    const { data } = await supabase
+      .from("clinic_branches")
+      .select("*")
+      .eq("clinic_id", clinic.id)
+      .order("is_main", { ascending: false })
+      .order("name");
+
+    if (data) setBranches(data as unknown as ClinicBranch[]);
+    setLoading(false);
+  }, [clinic]);
+
+  useEffect(() => {
+    fetchBranches();
+  }, [fetchBranches]);
+
+  async function createBranch(data: { name: string; address?: string; phone?: string; email?: string; is_main?: boolean }) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    const { error } = await supabase
+      .from("clinic_branches")
+      .insert({
+        clinic_id: clinic.id,
+        name: data.name,
+        address: data.address || null,
+        phone: data.phone || null,
+        email: data.email || null,
+        is_main: data.is_main || false,
+        is_active: true,
+      } as Record<string, unknown>);
+
+    return { error: error?.message || null };
+  }
+
+  async function updateBranch(id: string, data: { name?: string; address?: string; phone?: string; email?: string; is_main?: boolean }) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    const { error } = await supabase
+      .from("clinic_branches")
+      .update({ ...data, updated_at: new Date().toISOString() } as Record<string, unknown>)
+      .eq("id", id)
+      .eq("clinic_id", clinic.id);
+
+    return { error: error?.message || null };
+  }
+
+  async function toggleBranchActive(id: string, isActive: boolean) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    const { error } = await supabase
+      .from("clinic_branches")
+      .update({ is_active: isActive, updated_at: new Date().toISOString() } as Record<string, unknown>)
+      .eq("id", id)
+      .eq("clinic_id", clinic.id);
+
+    return { error: error?.message || null };
+  }
+
+  return { branches, loading, refetch: fetchBranches, createBranch, updateBranch, toggleBranchActive };
 }
 
 export function useClinicMutations() {

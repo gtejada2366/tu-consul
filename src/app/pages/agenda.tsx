@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { Card, CardContent } from "../components/ui/card";
@@ -8,15 +8,26 @@ import { Loading } from "../components/ui/loading";
 import { Modal } from "../components/ui/modal";
 import {
   ChevronLeft, ChevronRight, Plus, Search,
-  Calendar as CalendarIcon, Clock, User, X, FileText
+  Calendar as CalendarIcon, Clock, User, X, FileText,
+  TrendingUp, Users, DollarSign
 } from "lucide-react";
 import { useAppointments, useWeekAppointments, useAppointmentMutations } from "../hooks/use-appointments";
+import { useDashboard } from "../hooks/use-dashboard";
 import { usePatients } from "../hooks/use-patients";
-import { useClinicUsers, useClinicSchedules } from "../hooks/use-clinic";
-import type { AppointmentWithRelations } from "../lib/types";
+import { useClinicUsers, useClinicSchedules, useClinicServices } from "../hooks/use-clinic";
+import { useAuth } from "../contexts/auth-context";
+import { supabase } from "../lib/supabase";
+import type { AppointmentWithRelations, ClinicService } from "../lib/types";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
 import { SearchableSelect } from "../components/ui/searchable-select";
 import { APPOINTMENT_TYPES, DURATION_OPTIONS, STATUS_COLORS, STATUS_LABELS, generateTimeSlots, getTypeColor, TYPE_COLORS, toLocalDateStr, to12h } from "../lib/constants";
+
+interface CompletionServiceLine {
+  service_id: string | null;
+  service_name: string;
+  price: number;
+  quantity: number;
+}
 
 function formatDate(date: Date): string { return toLocalDateStr(date); }
 function formatDisplayDate(date: Date): string {
@@ -42,6 +53,7 @@ export function Agenda() {
   const weekRange = getWeekRange(currentDate);
   const { appointments: weekAppointments, loading: weekLoading, refetch: refetchWeek } = useWeekAppointments(formatDate(weekRange.start), formatDate(weekRange.end));
   const { createAppointment, updateAppointment, cancelAppointment } = useAppointmentMutations();
+  const { stats, canSeeRevenue } = useDashboard();
   const { patients } = usePatients();
   const { schedules } = useClinicSchedules();
 
@@ -66,9 +78,18 @@ export function Agenda() {
   const [saving, setSaving] = useState(false);
   const [agendaSearch, setAgendaSearch] = useState("");
   const { users: clinicUsers } = useClinicUsers();
-  const doctors = clinicUsers.filter(u => u.role === "doctor" || u.role === "admin");
+  const { services: clinicServicesList } = useClinicServices();
+  const { clinic } = useAuth();
+  const activeServices = useMemo(() => clinicServicesList.filter(s => s.is_active), [clinicServicesList]);
+  const doctors = useMemo(() => clinicUsers.filter(u => u.role === "doctor" || u.role === "admin"), [clinicUsers]);
   const [aptForm, setAptForm] = useState({ patient_id: "", doctor_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "" });
   const [editForm, setEditForm] = useState({ date: "", start_time: "", duration_minutes: "", type: "", status: "", notes: "", doctor_id: "" });
+
+  // Completion modal state
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completionApt, setCompletionApt] = useState<AppointmentWithRelations | null>(null);
+  const [completionLines, setCompletionLines] = useState<CompletionServiceLine[]>([]);
+  const [completionSaving, setCompletionSaving] = useState(false);
 
   // Drag & Drop state
   const [draggedAptId, setDraggedAptId] = useState<string | null>(null);
@@ -167,6 +188,14 @@ export function Agenda() {
   async function handleEditApt(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedAppointment) return;
+
+    // If changing to completed, open completion modal instead
+    if (editForm.status === "completed" && selectedAppointment.status !== "completed") {
+      setShowEditModal(false);
+      openCompletionModal(selectedAppointment);
+      return;
+    }
+
     setSaving(true);
     const { error } = await updateAppointment(selectedAppointment.id, {
       date: editForm.date, start_time: editForm.start_time,
@@ -177,6 +206,68 @@ export function Agenda() {
     setSaving(false);
     if (error) { toast.error(error); }
     else { toast.success("Cita actualizada"); setShowEditModal(false); setSelectedAppointment(null); refetch(); refetchWeek(); }
+  }
+
+  function openCompletionModal(apt: AppointmentWithRelations) {
+    setCompletionApt(apt);
+    setCompletionLines([{ service_id: null, service_name: "", price: 0, quantity: 1 }]);
+    setShowCompletionModal(true);
+  }
+
+  function addCompletionLine() {
+    setCompletionLines(prev => [...prev, { service_id: null, service_name: "", price: 0, quantity: 1 }]);
+  }
+
+  function removeCompletionLine(index: number) {
+    setCompletionLines(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function updateCompletionLine(index: number, field: keyof CompletionServiceLine, value: string | number) {
+    setCompletionLines(prev => prev.map((line, i) => {
+      if (i !== index) return line;
+      if (field === "service_id") {
+        const svc = activeServices.find(s => s.id === value);
+        if (svc) return { ...line, service_id: svc.id, service_name: svc.name, price: Number(svc.price) };
+        return { ...line, service_id: null, service_name: "", price: 0 };
+      }
+      return { ...line, [field]: value };
+    }));
+  }
+
+  const completionTotal = completionLines.reduce((sum, l) => sum + (l.price * l.quantity), 0);
+
+  async function handleCompleteAppointment() {
+    if (!completionApt || !clinic) return;
+    const validLines = completionLines.filter(l => l.service_name.trim());
+    if (validLines.length === 0) { toast.error("Agrega al menos un servicio realizado"); return; }
+
+    setCompletionSaving(true);
+
+    // 1. Mark appointment as completed
+    const { error: aptError } = await updateAppointment(completionApt.id, { status: "completed" });
+    if (aptError) { toast.error(aptError); setCompletionSaving(false); return; }
+
+    // 2. Insert appointment_services
+    const { error: svcError } = await supabase
+      .from("appointment_services")
+      .insert(validLines.map(l => ({
+        appointment_id: completionApt.id,
+        clinic_id: clinic.id,
+        service_id: l.service_id,
+        service_name: l.service_name,
+        price: l.price,
+        quantity: l.quantity,
+      })) as Record<string, unknown>[]);
+
+    if (svcError) { toast.error("Cita completada pero hubo un error al guardar los servicios"); }
+
+    setCompletionSaving(false);
+    toast.success("Cita completada con servicios registrados");
+    setShowCompletionModal(false);
+    setCompletionApt(null);
+    setSelectedAppointment(null);
+    refetch();
+    refetchWeek();
   }
 
   async function handleCancelApt() {
@@ -196,6 +287,56 @@ export function Agenda() {
           <p className="text-[0.875rem] text-foreground-secondary mt-1">Gestiona tus citas y horarios</p>
         </div>
         <Button variant="primary" size="md" onClick={() => openCreateModal()}><Plus className="w-4 h-4 mr-2" />Nueva Cita</Button>
+      </div>
+
+      {/* KPI Cards */}
+      <div className={`grid grid-cols-2 ${canSeeRevenue ? "md:grid-cols-4" : "md:grid-cols-3"} gap-3`}>
+        <Card>
+          <div className="p-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Citas Hoy</p>
+              <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.appointments_today}</p>
+            </div>
+            <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <CalendarIcon className="w-5 h-5 text-primary" />
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="p-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">% Atendidos</p>
+              <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.occupancy_pct}%</p>
+            </div>
+            <div className="w-10 h-10 rounded-[10px] bg-success/10 flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-5 h-5 text-success" />
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="p-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Atendidos</p>
+              <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.patients_attended}</p>
+            </div>
+            <div className="w-10 h-10 rounded-[10px] bg-warning/10 flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5 text-warning" />
+            </div>
+          </div>
+        </Card>
+        {canSeeRevenue && (
+          <Card>
+            <div className="p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Ingresos Hoy</p>
+                <p className="text-[1.5rem] font-semibold text-foreground leading-none">S/{stats.revenue_today.toLocaleString()}</p>
+              </div>
+              <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-5 h-5 text-primary" />
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
 
       <Card><CardContent className="p-3 sm:p-4">
@@ -295,14 +436,16 @@ export function Agenda() {
                 {/* Header: hour col + 7 day columns */}
                 <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border sticky top-0 bg-surface z-10">
                   <div className="border-r border-border" />
-                  {weekDays.map((d, i) => {
-                    const isToday = formatDate(d) === formatDate(new Date());
-                    const isSelected = formatDate(d) === formatDate(currentDate);
+                  {weekDays.map((d) => {
+                    const dateStr = formatDate(d);
+                    const dayIdx = weekDays.indexOf(d);
+                    const isToday = dateStr === formatDate(new Date());
+                    const isSelected = dateStr === formatDate(currentDate);
                     return (
-                      <button key={i} onClick={() => { setCurrentDate(new Date(d)); setView("day"); }}
+                      <button key={dateStr} onClick={() => { setCurrentDate(new Date(d)); setView("day"); }}
                         className={`py-3 text-center border-r border-border last:border-r-0 transition-colors hover:bg-surface-alt
                           ${isToday ? "bg-primary/5" : ""} ${isSelected ? "bg-primary/10" : ""}`}>
-                        <p className="text-[0.6875rem] font-medium text-foreground-secondary">{WEEK_DAY_NAMES[i]}</p>
+                        <p className="text-[0.6875rem] font-medium text-foreground-secondary">{WEEK_DAY_NAMES[dayIdx]}</p>
                         <p className={`text-[1rem] font-semibold mt-0.5 ${isToday ? "text-primary" : "text-foreground"}`}>{d.getDate()}</p>
                       </button>
                     );
@@ -317,7 +460,7 @@ export function Agenda() {
                         {to12h(time)}
                       </div>
                       {/* Day cells for this time slot */}
-                      {weekDays.map((d, i) => {
+                      {weekDays.map((d) => {
                         const dateStr = formatDate(d);
                         const isToday = dateStr === formatDate(new Date());
                         const isDayDropTarget = dropTarget === `date:${dateStr}`;
@@ -328,7 +471,7 @@ export function Agenda() {
                           return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
                         });
                         return (
-                          <div key={i} className={`border-r border-border last:border-r-0 p-0.5 min-h-[48px] transition-colors cursor-pointer
+                          <div key={dateStr} className={`border-r border-border last:border-r-0 p-0.5 min-h-[48px] transition-colors cursor-pointer
                             ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15" : ""} ${slotApts.length === 0 ? "hover:bg-surface-alt" : ""}`}
                             onClick={() => { if (slotApts.length === 0) openCreateModal(time, dateStr); }}
                             onDragOver={e => handleDragOver(e, `date:${dateStr}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnDay(e, dateStr)}>
@@ -370,10 +513,48 @@ export function Agenda() {
                 <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Notas</p><p className="text-[0.875rem] text-foreground">{selectedAppointment.notes}</p></div></div>
               )}
             </div>
-            <div className="pt-3 border-t border-border"><Badge variant={STATUS_COLORS[selectedAppointment.status]} className="mb-4">{STATUS_LABELS[selectedAppointment.status]}</Badge></div>
-            <div className="space-y-2">
-              <Link to={`/historia-clinica/${selectedAppointment.patient_id}`}><Button variant="primary" className="w-full">Ver Historia Clínica</Button></Link>
-              <Button variant="tertiary" className="w-full" onClick={openEditModal}>Editar Cita</Button>
+
+            {/* Current status + Change status */}
+            <div className="pt-3 border-t border-border">
+              <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Estado actual</p>
+              <Badge variant={STATUS_COLORS[selectedAppointment.status]} className="mb-4">{STATUS_LABELS[selectedAppointment.status]}</Badge>
+
+              {selectedAppointment.status !== "cancelled" && selectedAppointment.status !== "completed" && (
+                <div>
+                  <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Cambiar estado</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedAppointment.status !== "confirmed" && (
+                      <Button variant="tertiary" size="sm" className="w-full" onClick={async () => {
+                        const { error } = await updateAppointment(selectedAppointment.id, { status: "confirmed" });
+                        if (error) toast.error(error);
+                        else { toast.success("Cita confirmada"); setSelectedAppointment(null); refetch(); refetchWeek(); }
+                      }}>Confirmar</Button>
+                    )}
+                    {selectedAppointment.status !== "in_transit" && (
+                      <Button variant="tertiary" size="sm" className="w-full" onClick={async () => {
+                        const { error } = await updateAppointment(selectedAppointment.id, { status: "in_transit" });
+                        if (error) toast.error(error);
+                        else { toast.success("Paciente en camino"); setSelectedAppointment(null); refetch(); refetchWeek(); }
+                      }}>En Camino</Button>
+                    )}
+                    {selectedAppointment.status !== "in_progress" && (
+                      <Button variant="tertiary" size="sm" className="w-full" onClick={async () => {
+                        const { error } = await updateAppointment(selectedAppointment.id, { status: "in_progress" });
+                        if (error) toast.error(error);
+                        else { toast.success("Paciente en consulta"); setSelectedAppointment(null); refetch(); refetchWeek(); }
+                      }}>En Consulta</Button>
+                    )}
+                    <Button variant="primary" size="sm" className="w-full" onClick={() => {
+                      setSelectedAppointment(null);
+                      openCompletionModal(selectedAppointment);
+                    }}>Completar</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-3 border-t border-border">
+              <Button variant="tertiary" className="w-full" onClick={openEditModal}>Reprogramar / Editar Cita</Button>
               {selectedAppointment.status !== "cancelled" && selectedAppointment.status !== "completed" && (
                 <Button variant="danger" className="w-full" onClick={() => setShowCancelModal(true)}>Cancelar Cita</Button>
               )}
@@ -472,6 +653,74 @@ export function Agenda() {
             <Button variant="danger" size="md" onClick={handleCancelApt} disabled={saving}>{saving ? "Cancelando..." : "Sí, cancelar"}</Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Completion Modal — Services performed */}
+      <Modal open={showCompletionModal} onClose={() => setShowCompletionModal(false)} title="Completar Cita — Servicios Realizados" size="lg">
+        {completionApt && (
+          <div className="space-y-4">
+            <div className="p-3 bg-surface-alt rounded-[10px]">
+              <p className="text-[0.875rem] font-semibold text-foreground">{completionApt.patient?.full_name}</p>
+              <p className="text-[0.75rem] text-foreground-secondary">{completionApt.type} • {to12h(completionApt.start_time)} • Dr. {completionApt.doctor?.full_name || "-"}</p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[0.875rem] font-semibold text-foreground">Servicios realizados</p>
+                <Button variant="tertiary" size="sm" onClick={addCompletionLine}>
+                  <Plus className="w-4 h-4 mr-1" />Agregar
+                </Button>
+              </div>
+
+              {/* Header */}
+              <div className="hidden md:grid grid-cols-[1fr_100px_60px_80px_32px] gap-2 px-1">
+                <span className="text-[0.6875rem] font-medium text-foreground-secondary">Servicio</span>
+                <span className="text-[0.6875rem] font-medium text-foreground-secondary">Precio (S/)</span>
+                <span className="text-[0.6875rem] font-medium text-foreground-secondary">Cant.</span>
+                <span className="text-[0.6875rem] font-medium text-foreground-secondary text-right">Subtotal</span>
+                <span />
+              </div>
+
+              {completionLines.map((line, idx) => (
+                <div key={`line-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_100px_60px_80px_32px] gap-2 items-center p-2 bg-surface-alt rounded-[10px]">
+                  <select className={inputClass} value={line.service_id || ""}
+                    onChange={e => updateCompletionLine(idx, "service_id", e.target.value)}>
+                    <option value="">Seleccionar servicio...</option>
+                    {activeServices.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} — S/{Number(s.price).toFixed(2)}</option>
+                    ))}
+                  </select>
+                  <input type="number" step="0.01" min="0" className={inputClass} placeholder="0.00"
+                    value={line.price || ""} onChange={e => updateCompletionLine(idx, "price", parseFloat(e.target.value) || 0)} />
+                  <input type="number" min="1" className={inputClass}
+                    value={line.quantity} onChange={e => updateCompletionLine(idx, "quantity", parseInt(e.target.value) || 1)} />
+                  <p className="text-[0.875rem] font-semibold text-foreground text-right">
+                    S/{(line.price * line.quantity).toFixed(2)}
+                  </p>
+                  {completionLines.length > 1 && (
+                    <button type="button" onClick={() => removeCompletionLine(idx)}
+                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-danger/10 text-foreground-secondary hover:text-danger transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Total */}
+            <div className="flex items-center justify-between p-4 bg-primary/5 rounded-[10px] border border-primary/20">
+              <span className="text-[0.875rem] font-semibold text-foreground">Total</span>
+              <span className="text-[1.25rem] font-bold text-primary">S/{completionTotal.toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button variant="tertiary" size="md" onClick={() => setShowCompletionModal(false)}>Cancelar</Button>
+              <Button variant="primary" size="md" onClick={handleCompleteAppointment} disabled={completionSaving}>
+                {completionSaving ? "Guardando..." : "Completar Cita"}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

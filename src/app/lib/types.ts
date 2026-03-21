@@ -272,6 +272,42 @@ export interface InvoiceWithPatient extends Invoice {
   patient: Pick<Patient, "full_name">;
 }
 
+export interface ClinicService {
+  id: string;
+  clinic_id: string;
+  name: string;
+  price: number;
+  min_price: number;
+  category: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppointmentService {
+  id: string;
+  appointment_id: string;
+  clinic_id: string;
+  service_id: string | null;
+  service_name: string;
+  price: number;
+  quantity: number;
+  created_at: string;
+}
+
+export interface ClinicBranch {
+  id: string;
+  clinic_id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  is_main: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ClinicSchedule {
   id: string;
   clinic_id: string;
@@ -322,4 +358,56 @@ export interface DashboardStats {
   occupancy_pct: number;
   new_patients_month: number;
   revenue_today: number;
+}
+
+// SUNAT types
+export interface ClinicSunatConfig {
+  id: string;
+  clinic_id: string;
+  ruc: string;
+  razon_social: string;
+  nombre_comercial: string | null;
+  direccion_fiscal: string | null;
+  ubigeo: string | null;
+  sol_user: string;
+  sol_password: string;
+  certificate_path: string | null;
+  certificate_password: string;
+  serie_boleta: string;
+  serie_factura: string;
+  serie_nota_credito_b: string;
+  serie_nota_credito_f: string;
+  next_boleta: number;
+  next_factura: number;
+  is_production: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ComprobanteElectronico {
+  id: string;
+  clinic_id: string;
+  invoice_id: string | null;
+  tipo_comprobante: "01" | "03" | "07" | "08";
+  serie: string;
+  correlativo: number;
+  fecha_emision: string;
+  cliente_tipo_doc: string;
+  cliente_numero_doc: string;
+  cliente_razon_social: string;
+  cliente_direccion: string | null;
+  total_gravada: number;
+  total_igv: number;
+  total_venta: number;
+  moneda: string;
+  sunat_status: "pending" | "sent" | "accepted" | "accepted_with_observations" | "rejected" | "error" | "voided";
+  sunat_response_code: string | null;
+  sunat_description: string | null;
+  resumen_ticket: string | null;
+  xml_signed_path: string | null;
+  cdr_path: string | null;
+  hash_cpe: string | null;
+  created_at: string;
+  updated_at: string;
 }

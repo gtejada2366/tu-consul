@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -66,7 +66,7 @@ export function Laboratory() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
-  const filtered = orders.filter((o) => {
+  const filtered = useMemo(() => orders.filter((o) => {
     const patientName = o.patient?.full_name || "";
     const matchesSearch =
       patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,7 +75,7 @@ export function Laboratory() {
     const matchesStatus = statusFilter === "all" || o.status === statusFilter;
     const matchesPayment = paymentFilter === "all" || o.payment_status === paymentFilter;
     return matchesSearch && matchesStatus && matchesPayment;
-  });
+  }), [orders, searchTerm, statusFilter, paymentFilter]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

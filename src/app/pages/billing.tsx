@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -32,22 +32,29 @@ export function Billing() {
   const [paymentMethod, setPaymentMethod] = useState("Efectivo");
   const [saving, setSaving] = useState(false);
   const [invoiceForm, setInvoiceForm] = useState({ patient_id: "", amount: "", service: "", notes: "" });
+  const [amountError, setAmountError] = useState("");
 
-  const filteredBilling = invoices.filter(bill => {
+  const filteredBilling = useMemo(() => invoices.filter(bill => {
     const patientName = bill.patient?.full_name || "";
     const matchesSearch = patientName.toLowerCase().includes(searchTerm.toLowerCase()) || bill.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || bill.status === statusFilter;
     return matchesSearch && matchesStatus;
-  });
+  }), [invoices, searchTerm, statusFilter]);
 
   async function handleCreateInvoice(e: React.FormEvent) {
     e.preventDefault();
-    if (!invoiceForm.patient_id || !invoiceForm.amount || !invoiceForm.service.trim()) {
-      toast.error("Paciente, monto y servicio son obligatorios"); return;
+    if (!invoiceForm.patient_id) { toast.error("Selecciona un paciente"); return; }
+    if (!invoiceForm.service.trim()) { toast.error("Selecciona un servicio"); return; }
+    const amount = parseFloat(invoiceForm.amount);
+    if (!invoiceForm.amount || isNaN(amount) || amount <= 0) {
+      toast.error("El monto debe ser un número mayor a 0"); return;
+    }
+    if (amount > 999999) {
+      toast.error("El monto no puede exceder S/999,999"); return;
     }
     setSaving(true);
     const { error } = await createInvoice({
-      patient_id: invoiceForm.patient_id, amount: parseFloat(invoiceForm.amount),
+      patient_id: invoiceForm.patient_id, amount,
       service: invoiceForm.service.trim(), notes: invoiceForm.notes.trim() || undefined,
     });
     setSaving(false);
@@ -144,6 +151,7 @@ export function Billing() {
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
             <input type="text" placeholder="Buscar factura por paciente o número..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Buscar facturas"
               className="w-full h-10 pl-10 pr-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150" />
           </div>
           <div className="flex items-center gap-1.5">
@@ -199,7 +207,17 @@ export function Billing() {
             </table>
           </div>
           {filteredBilling.length === 0 && (
-            <div className="text-center py-12"><Search className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" /><p className="text-[0.875rem] text-foreground-secondary">No se encontraron facturas</p></div>
+            <div className="text-center py-12">
+              <Search className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
+              <p className="text-[0.875rem] text-foreground-secondary">
+                {searchTerm || statusFilter !== "all" ? "No se encontraron facturas con esos filtros" : "Aún no hay facturas registradas"}
+              </p>
+              {!searchTerm && statusFilter === "all" && (
+                <Button variant="primary" size="sm" className="mt-3" onClick={() => setShowCreateModal(true)}>
+                  <Plus className="w-4 h-4 mr-1" />Registrar primer cobro
+                </Button>
+              )}
+            </div>
           )}
         </>)}
       </CardContent></Card>
@@ -217,7 +235,16 @@ export function Billing() {
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className={labelClass}>Monto (S/) *</label><input type="number" step="0.01" min="0" className={inputClass} placeholder="0.00" value={invoiceForm.amount} onChange={e => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} /></div>
+            <div>
+              <label className={labelClass}>Monto (S/) *</label>
+              <input type="number" step="0.01" min="0" className={`${inputClass} ${amountError ? "!border-danger" : ""}`} placeholder="0.00" value={invoiceForm.amount}
+                onChange={e => {
+                  setInvoiceForm({ ...invoiceForm, amount: e.target.value });
+                  const v = parseFloat(e.target.value);
+                  setAmountError(e.target.value && (isNaN(v) || v <= 0) ? "Debe ser mayor a 0" : v > 999999 ? "Máximo S/999,999" : "");
+                }} />
+              {amountError && <p className="text-[0.75rem] text-danger mt-1">{amountError}</p>}
+            </div>
             <div><label className={labelClass}>Servicio *</label>
               <select className={inputClass} value={invoiceForm.service} onChange={e => setInvoiceForm({ ...invoiceForm, service: e.target.value })}>
                 <option value="">Seleccionar</option>

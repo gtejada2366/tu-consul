@@ -23,24 +23,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load user profile and clinic data
   async function loadUserProfile(userId: string) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .single();
-
-    if (profile) {
-      setUser(profile as unknown as User);
-
-      const { data: clinicData } = await supabase
-        .from("clinics")
+    try {
+      const { data: profile, error: profileError } = await supabase
+        .from("users")
         .select("*")
-        .eq("id", (profile as Record<string, string>).clinic_id)
+        .eq("id", userId)
         .single();
 
-      if (clinicData) {
-        setClinic(clinicData as unknown as Clinic);
+      if (profileError) {
+        console.error("Error loading user profile:", profileError.message);
+        return;
       }
+
+      if (profile) {
+        setUser(profile as unknown as User);
+
+        const { data: clinicData, error: clinicError } = await supabase
+          .from("clinics")
+          .select("*")
+          .eq("id", (profile as Record<string, string>).clinic_id)
+          .single();
+
+        if (clinicError) {
+          console.error("Error loading clinic data:", clinicError.message);
+          return;
+        }
+
+        if (clinicData) {
+          setClinic(clinicData as unknown as Clinic);
+        }
+      }
+    } catch (err) {
+      console.error("Unexpected error loading user profile:", err);
     }
   }
 

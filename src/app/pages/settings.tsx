@@ -16,20 +16,31 @@ import {
   Save,
   Plus,
   User as UserIcon,
+  MapPin,
+  Pencil,
+  Tag,
+  DollarSign,
+  FileCheck,
+  Upload,
+  Check,
 } from "lucide-react";
 import { useAuth } from "../contexts/auth-context";
-import { useClinicUsers, useClinicSchedules, useNotificationPreferences, useClinicMutations, useUserMutations } from "../hooks/use-clinic";
+import { useClinicUsers, useClinicSchedules, useNotificationPreferences, useClinicMutations, useUserMutations, useClinicBranches, useClinicServices } from "../hooks/use-clinic";
 import { supabase } from "../lib/supabase";
 import { inputClass, labelClass } from "../components/modals/form-classes";
-import type { ClinicSchedule } from "../lib/types";
+import type { ClinicBranch, ClinicService, ClinicSchedule, ClinicSunatConfig } from "../lib/types";
+import { sunatApi } from "../lib/sunat-api";
 
 // Tabs for admin
 const adminTabs = [
   { id: "clinic", label: "Clínica", icon: Building2 },
+  { id: "services", label: "Servicios y Precios", icon: Tag },
+  { id: "branches", label: "Sedes", icon: MapPin },
   { id: "users", label: "Usuarios", icon: Users },
   { id: "schedule", label: "Horarios", icon: Clock },
   { id: "notifications", label: "Notificaciones", icon: Bell },
   { id: "billing", label: "Facturación", icon: CreditCard },
+  { id: "sunat", label: "SUNAT", icon: FileCheck },
 ];
 
 // Tabs for non-admin (doctor, receptionist)
@@ -57,6 +68,8 @@ export function Settings() {
   const { prefs, loading: prefsLoading, updatePrefs } = useNotificationPreferences();
   const { updateClinic } = useClinicMutations();
   const { createUser, updateUserRole, toggleUserActive } = useUserMutations();
+  const { branches, loading: branchesLoading, refetch: refetchBranches, createBranch, updateBranch, toggleBranchActive } = useClinicBranches();
+  const { services, loading: servicesLoading, refetch: refetchServices, createService, updateService, toggleServiceActive } = useClinicServices();
 
   const [activeTab, setActiveTab] = useState(isAdmin ? "clinic" : "profile");
 
@@ -98,19 +111,93 @@ export function Settings() {
   const [userForm, setUserForm] = useState({ full_name: "", email: "", password: "", role: "doctor" as "admin" | "doctor" | "receptionist", specialty: "" });
   const [saving, setSaving] = useState(false);
 
+  // Branch modal state
+  const [showBranchModal, setShowBranchModal] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<ClinicBranch | null>(null);
+  const [branchForm, setBranchForm] = useState({ name: "", address: "", phone: "", email: "", is_main: false });
+
+  // SUNAT config state
+  const [sunatConfig, setSunatConfig] = useState<Partial<ClinicSunatConfig> | null>(null);
+  const [sunatLoading, setSunatLoading] = useState(false);
+  const [sunatForm, setSunatForm] = useState({
+    ruc: "", razon_social: "", nombre_comercial: "", direccion_fiscal: "", ubigeo: "",
+    sol_user: "", sol_password: "",
+    serie_boleta: "B001", serie_factura: "F001",
+    is_production: false, is_active: false,
+  });
+  const [certFile, setCertFile] = useState<File | null>(null);
+  const [certPassword, setCertPassword] = useState("");
+
+  async function loadSunatConfig() {
+    setSunatLoading(true);
+    try {
+      const { config } = await sunatApi.getConfig();
+      if (config) {
+        setSunatConfig(config);
+        setSunatForm({
+          ruc: config.ruc || "",
+          razon_social: config.razon_social || "",
+          nombre_comercial: config.nombre_comercial || "",
+          direccion_fiscal: config.direccion_fiscal || "",
+          ubigeo: config.ubigeo || "",
+          sol_user: config.sol_user || "",
+          sol_password: config.sol_password || "",
+          serie_boleta: config.serie_boleta || "B001",
+          serie_factura: config.serie_factura || "F001",
+          is_production: config.is_production || false,
+          is_active: config.is_active || false,
+        });
+      }
+    } catch { /* no config yet */ }
+    setSunatLoading(false);
+  }
+
+  async function handleSaveSunat() {
+    if (!sunatForm.ruc || !sunatForm.razon_social || !sunatForm.sol_user) {
+      toast.error("RUC, Razón Social y Usuario SOL son obligatorios"); return;
+    }
+    setSaving(true);
+    try {
+      await sunatApi.saveConfig(sunatForm);
+      toast.success("Configuración SUNAT guardada");
+      loadSunatConfig();
+    } catch (e: any) { toast.error(e.message); }
+    setSaving(false);
+  }
+
+  async function handleUploadCert() {
+    if (!certFile) { toast.error("Selecciona un archivo .pfx"); return; }
+    setSaving(true);
+    try {
+      await sunatApi.uploadCertificate(certFile, certPassword);
+      toast.success("Certificado validado y guardado");
+      setCertFile(null);
+      setCertPassword("");
+      loadSunatConfig();
+    } catch (e: any) { toast.error(e.message); }
+    setSaving(false);
+  }
+
+  // Service modal state
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [editingService, setEditingService] = useState<ClinicService | null>(null);
+  const [serviceForm, setServiceForm] = useState({ name: "", price: "", min_price: "", category: "" });
+
   async function handleSaveClinic() {
     const { error } = await updateClinic({
       name: clinicName, email: clinicEmail, phone: clinicPhone, address: clinicAddress,
     });
-    if (error) toast.error("Error al guardar: " + error);
+    if (error) toast.error("Error al guardar los datos de la clínica");
     else toast.success("Cambios guardados correctamente");
   }
 
   async function handleChangePassword() {
     if (newPassword !== confirmPassword) { toast.error("Las contraseñas no coinciden"); return; }
-    if (newPassword.length < 6) { toast.error("La contraseña debe tener al menos 6 caracteres"); return; }
+    if (newPassword.length < 8) { toast.error("La contraseña debe tener al menos 8 caracteres"); return; }
+    if (!/[A-Z]/.test(newPassword)) { toast.error("La contraseña debe contener al menos una mayúscula"); return; }
+    if (!/[0-9]/.test(newPassword)) { toast.error("La contraseña debe contener al menos un número"); return; }
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) toast.error("Error: " + error.message);
+    if (error) toast.error("Error al cambiar la contraseña. Intente nuevamente.");
     else { toast.success("Contraseña actualizada"); setNewPassword(""); setConfirmPassword(""); }
   }
 
@@ -122,7 +209,7 @@ export function Settings() {
       .update({ full_name: profileName, specialty: profileSpecialty || null, updated_at: new Date().toISOString() } as Record<string, unknown>)
       .eq("id", user.id);
     setSaving(false);
-    if (error) toast.error("Error: " + error.message);
+    if (error) toast.error("Error al actualizar el perfil");
     else { toast.success("Perfil actualizado"); refreshUser(); }
   }
 
@@ -131,7 +218,9 @@ export function Settings() {
     if (!userForm.full_name.trim() || !userForm.email.trim() || !userForm.password) {
       toast.error("Nombre, email y contraseña son obligatorios"); return;
     }
-    if (userForm.password.length < 6) { toast.error("La contraseña debe tener al menos 6 caracteres"); return; }
+    if (userForm.password.length < 8 || !/[A-Z]/.test(userForm.password) || !/\d/.test(userForm.password)) {
+      toast.error("La contraseña debe tener al menos 8 caracteres, una mayúscula y un número"); return;
+    }
     setSaving(true);
     const { error } = await createUser({
       full_name: userForm.full_name.trim(),
@@ -147,6 +236,105 @@ export function Settings() {
       setShowCreateUser(false);
       setUserForm({ full_name: "", email: "", password: "", role: "doctor", specialty: "" });
       refetchUsers();
+    }
+  }
+
+  function openServiceModal(service?: ClinicService) {
+    if (service) {
+      setEditingService(service);
+      setServiceForm({ name: service.name, price: String(service.price), min_price: String(service.min_price), category: service.category || "" });
+    } else {
+      setEditingService(null);
+      setServiceForm({ name: "", price: "", min_price: "", category: "" });
+    }
+    setShowServiceModal(true);
+  }
+
+  async function handleSaveService(e: React.FormEvent) {
+    e.preventDefault();
+    if (!serviceForm.name.trim()) { toast.error("El nombre del servicio es obligatorio"); return; }
+    const price = parseFloat(serviceForm.price);
+    if (isNaN(price) || price < 0) { toast.error("El precio debe ser un número válido"); return; }
+    const minPrice = parseFloat(serviceForm.min_price) || 0;
+    if (minPrice > price) { toast.error("El precio mínimo no puede ser mayor al precio"); return; }
+    setSaving(true);
+    if (editingService) {
+      const { error } = await updateService(editingService.id, {
+        name: serviceForm.name.trim(),
+        price,
+        min_price: minPrice,
+        category: serviceForm.category.trim() || undefined,
+      });
+      setSaving(false);
+      if (error) toast.error("Error al actualizar el servicio");
+      else { toast.success("Servicio actualizado"); setShowServiceModal(false); refetchServices(); }
+    } else {
+      const { error } = await createService({
+        name: serviceForm.name.trim(),
+        price,
+        min_price: minPrice,
+        category: serviceForm.category.trim() || undefined,
+      });
+      setSaving(false);
+      if (error) toast.error("Error al crear el servicio");
+      else { toast.success("Servicio creado"); setShowServiceModal(false); refetchServices(); }
+    }
+  }
+
+  function openBranchModal(branch?: ClinicBranch) {
+    if (branch) {
+      setEditingBranch(branch);
+      setBranchForm({
+        name: branch.name,
+        address: branch.address || "",
+        phone: branch.phone || "",
+        email: branch.email || "",
+        is_main: branch.is_main,
+      });
+    } else {
+      setEditingBranch(null);
+      setBranchForm({ name: "", address: "", phone: "", email: "", is_main: false });
+    }
+    setShowBranchModal(true);
+  }
+
+  async function handleSaveBranch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!branchForm.name.trim()) {
+      toast.error("El nombre de la sede es obligatorio");
+      return;
+    }
+    setSaving(true);
+    if (editingBranch) {
+      const { error } = await updateBranch(editingBranch.id, {
+        name: branchForm.name.trim(),
+        address: branchForm.address.trim() || undefined,
+        phone: branchForm.phone.trim() || undefined,
+        email: branchForm.email.trim() || undefined,
+        is_main: branchForm.is_main,
+      });
+      setSaving(false);
+      if (error) toast.error("Error al actualizar la sede");
+      else {
+        toast.success("Sede actualizada");
+        setShowBranchModal(false);
+        refetchBranches();
+      }
+    } else {
+      const { error } = await createBranch({
+        name: branchForm.name.trim(),
+        address: branchForm.address.trim() || undefined,
+        phone: branchForm.phone.trim() || undefined,
+        email: branchForm.email.trim() || undefined,
+        is_main: branchForm.is_main,
+      });
+      setSaving(false);
+      if (error) toast.error("Error al crear la sede");
+      else {
+        toast.success("Sede creada correctamente");
+        setShowBranchModal(false);
+        refetchBranches();
+      }
     }
   }
 
@@ -169,7 +357,7 @@ export function Settings() {
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  <button key={tab.id} onClick={() => { setActiveTab(tab.id); if (tab.id === "sunat") loadSunatConfig(); }}
                     className={`flex items-center gap-2 lg:gap-3 px-3 py-2 lg:py-2.5 rounded-[10px]
                       transition-all duration-150 text-left whitespace-nowrap flex-shrink-0 lg:w-full
                       ${activeTab === tab.id ? "bg-primary text-white" : "text-foreground-secondary hover:bg-surface-alt hover:text-foreground"}`}>
@@ -235,6 +423,156 @@ export function Settings() {
                 </CardContent>
               </Card>
             </>
+          )}
+
+          {/* ===== SERVICES TAB (admin) ===== */}
+          {activeTab === "services" && isAdmin && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Servicios y Precios</CardTitle>
+                  <Button variant="primary" size="sm" onClick={() => openServiceModal()}>
+                    <Plus className="w-4 h-4 mr-1" />Agregar Servicio
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {servicesLoading ? <Loading /> : services.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Tag className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
+                    <p className="text-[0.875rem] text-foreground-secondary mb-1">No hay servicios registrados</p>
+                    <p className="text-[0.75rem] text-foreground-secondary mb-4">Agrega los servicios que ofrece tu clínica con sus precios</p>
+                    <Button variant="primary" size="sm" onClick={() => openServiceModal()}>
+                      <Plus className="w-4 h-4 mr-1" />Agregar Primer Servicio
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left text-[0.75rem] font-medium text-foreground-secondary py-3 px-4">Servicio</th>
+                          <th className="text-right text-[0.75rem] font-medium text-foreground-secondary py-3 px-4">Precio</th>
+                          <th className="text-right text-[0.75rem] font-medium text-foreground-secondary py-3 px-4">Precio Mínimo</th>
+                          <th className="text-left text-[0.75rem] font-medium text-foreground-secondary py-3 px-4">Categoría</th>
+                          <th className="text-right text-[0.75rem] font-medium text-foreground-secondary py-3 px-4">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {services.map((service) => (
+                          <tr key={service.id} className="border-b border-border last:border-0 hover:bg-surface-alt transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[0.875rem] font-medium text-foreground">{service.name}</span>
+                                {!service.is_active && <Badge variant="danger">Inactivo</Badge>}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span className="text-[0.875rem] font-semibold text-primary">S/{Number(service.price).toFixed(2)}</span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span className="text-[0.875rem] text-foreground-secondary">S/{Number(service.min_price).toFixed(2)}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              {service.category ? (
+                                <Badge variant="secondary">{service.category}</Badge>
+                              ) : (
+                                <span className="text-[0.75rem] text-foreground-secondary">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button variant="tertiary" size="sm" onClick={() => openServiceModal(service)}>
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant={service.is_active ? "tertiary" : "primary"}
+                                  size="sm"
+                                  onClick={async () => {
+                                    const { error } = await toggleServiceActive(service.id, !service.is_active);
+                                    if (error) toast.error(error);
+                                    else { toast.success(service.is_active ? "Servicio desactivado" : "Servicio activado"); refetchServices(); }
+                                  }}
+                                >
+                                  {service.is_active ? "Desactivar" : "Activar"}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ===== BRANCHES TAB (admin) ===== */}
+          {activeTab === "branches" && isAdmin && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Sedes / Sucursales</CardTitle>
+                  <Button variant="primary" size="sm" onClick={() => openBranchModal()}>
+                    <Plus className="w-4 h-4 mr-1" />Agregar Sede
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {branchesLoading ? <Loading /> : branches.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MapPin className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
+                    <p className="text-[0.875rem] text-foreground-secondary mb-1">No hay sedes registradas</p>
+                    <p className="text-[0.75rem] text-foreground-secondary mb-4">Agrega la sede principal y sucursales de tu clínica</p>
+                    <Button variant="primary" size="sm" onClick={() => openBranchModal()}>
+                      <Plus className="w-4 h-4 mr-1" />Agregar Primera Sede
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {branches.map((branch) => (
+                      <div key={branch.id} className="flex items-center justify-between p-4 bg-surface-alt rounded-[10px]">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <MapPin className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-foreground text-[0.875rem]">{branch.name}</p>
+                              {branch.is_main && <Badge variant="primary">Principal</Badge>}
+                              {!branch.is_active && <Badge variant="danger">Inactiva</Badge>}
+                            </div>
+                            <p className="text-[0.75rem] text-foreground-secondary">
+                              {[branch.address, branch.phone, branch.email].filter(Boolean).join(" • ") || "Sin datos de contacto"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="tertiary" size="sm" onClick={() => openBranchModal(branch)}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant={branch.is_active ? "tertiary" : "primary"}
+                            size="sm"
+                            onClick={async () => {
+                              const { error } = await toggleBranchActive(branch.id, !branch.is_active);
+                              if (error) toast.error(error);
+                              else {
+                                toast.success(branch.is_active ? "Sede desactivada" : "Sede activada");
+                                refetchBranches();
+                              }
+                            }}
+                          >
+                            {branch.is_active ? "Desactivar" : "Activar"}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {/* ===== USERS TAB (admin) ===== */}
@@ -344,7 +682,7 @@ export function Settings() {
                           };
                         });
                         const { error } = await saveSchedules(updated as ClinicSchedule[]);
-                        if (error) toast.error("Error al guardar: " + error);
+                        if (error) toast.error("Error al guardar los horarios");
                         else toast.success("Horarios guardados correctamente");
                       }}>
                         <Save className="w-4 h-4 mr-2" />Guardar Horarios
@@ -443,6 +781,152 @@ export function Settings() {
             </>
           )}
 
+          {/* ===== SUNAT TAB (admin) ===== */}
+          {activeTab === "sunat" && isAdmin && (
+            <>
+              {sunatLoading ? <Loading /> : (
+                <>
+                  <Card>
+                    <CardHeader><CardTitle>Datos del Emisor</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className={labelClass}>RUC *</label>
+                          <input className={inputClass} placeholder="20123456789" maxLength={11} value={sunatForm.ruc}
+                            onChange={e => setSunatForm({ ...sunatForm, ruc: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Razón Social *</label>
+                          <input className={inputClass} placeholder="Mi Clínica S.A.C." value={sunatForm.razon_social}
+                            onChange={e => setSunatForm({ ...sunatForm, razon_social: e.target.value })} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className={labelClass}>Nombre Comercial</label>
+                          <input className={inputClass} placeholder="Tu Consul" value={sunatForm.nombre_comercial}
+                            onChange={e => setSunatForm({ ...sunatForm, nombre_comercial: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Ubigeo</label>
+                          <input className={inputClass} placeholder="150101" maxLength={6} value={sunatForm.ubigeo}
+                            onChange={e => setSunatForm({ ...sunatForm, ubigeo: e.target.value })} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Dirección Fiscal</label>
+                        <input className={inputClass} placeholder="Av. Principal 1234, Lima" value={sunatForm.direccion_fiscal}
+                          onChange={e => setSunatForm({ ...sunatForm, direccion_fiscal: e.target.value })} />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader><CardTitle>Clave SOL</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className={labelClass}>Usuario SOL *</label>
+                          <input className={inputClass} placeholder="MODDATOS" value={sunatForm.sol_user}
+                            onChange={e => setSunatForm({ ...sunatForm, sol_user: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Contraseña SOL *</label>
+                          <input className={inputClass} type="password" placeholder="••••••" value={sunatForm.sol_password}
+                            onChange={e => setSunatForm({ ...sunatForm, sol_password: e.target.value })} />
+                        </div>
+                      </div>
+                      <p className="text-[0.6875rem] text-foreground-secondary">
+                        Credenciales de SUNAT Online. Para pruebas usa: MODDATOS / moddatos
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader><CardTitle>Certificado Digital (.pfx)</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      {sunatConfig?.certificate_path ? (
+                        <div className="flex items-center gap-3 p-3 bg-success/5 border border-success/20 rounded-[10px]">
+                          <Check className="w-5 h-5 text-success" />
+                          <div>
+                            <p className="text-[0.875rem] font-medium text-foreground">Certificado cargado</p>
+                            <p className="text-[0.6875rem] text-foreground-secondary">Puedes reemplazarlo subiendo uno nuevo</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-warning/5 border border-warning/20 rounded-[10px]">
+                          <p className="text-[0.875rem] text-warning font-medium">Sin certificado</p>
+                          <p className="text-[0.6875rem] text-foreground-secondary">Sube tu certificado .pfx para poder emitir comprobantes</p>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className={labelClass}>Archivo .pfx</label>
+                          <input type="file" accept=".pfx,.p12" className={inputClass}
+                            onChange={e => setCertFile(e.target.files?.[0] || null)} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Contraseña del certificado</label>
+                          <input className={inputClass} type="password" placeholder="••••••" value={certPassword}
+                            onChange={e => setCertPassword(e.target.value)} />
+                        </div>
+                      </div>
+                      {certFile && (
+                        <Button variant="tertiary" size="sm" onClick={handleUploadCert} disabled={saving}>
+                          <Upload className="w-4 h-4 mr-1" />{saving ? "Subiendo..." : "Subir Certificado"}
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader><CardTitle>Series y Entorno</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className={labelClass}>Serie Boleta</label>
+                          <input className={inputClass} placeholder="B001" maxLength={4} value={sunatForm.serie_boleta}
+                            onChange={e => setSunatForm({ ...sunatForm, serie_boleta: e.target.value.toUpperCase() })} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Serie Factura</label>
+                          <input className={inputClass} placeholder="F001" maxLength={4} value={sunatForm.serie_factura}
+                            onChange={e => setSunatForm({ ...sunatForm, serie_factura: e.target.value.toUpperCase() })} />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 p-3 bg-surface-alt rounded-[10px] cursor-pointer">
+                          <input type="checkbox" checked={sunatForm.is_production}
+                            onChange={e => setSunatForm({ ...sunatForm, is_production: e.target.checked })}
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+                          <div>
+                            <p className="text-[0.875rem] font-medium text-foreground">Modo Producción</p>
+                            <p className="text-[0.6875rem] text-foreground-secondary">Desactivado = Beta (pruebas). Activar solo cuando estés listo para emitir comprobantes reales.</p>
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 bg-surface-alt rounded-[10px] cursor-pointer">
+                          <input type="checkbox" checked={sunatForm.is_active}
+                            onChange={e => setSunatForm({ ...sunatForm, is_active: e.target.checked })}
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+                          <div>
+                            <p className="text-[0.875rem] font-medium text-foreground">Facturación Electrónica Activa</p>
+                            <p className="text-[0.6875rem] text-foreground-secondary">Habilita la emisión de boletas y facturas electrónicas</p>
+                          </div>
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="flex justify-end">
+                    <Button variant="primary" size="md" onClick={handleSaveSunat} disabled={saving}>
+                      <Save className="w-4 h-4 mr-2" />{saving ? "Guardando..." : "Guardar Configuración SUNAT"}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
           {/* ===== SECURITY TAB (non-admin, password change) ===== */}
           {activeTab === "security" && (
             <Card>
@@ -459,6 +943,83 @@ export function Settings() {
         </div>
       </div>
 
+      {/* Service Modal */}
+      <Modal open={showServiceModal} onClose={() => setShowServiceModal(false)} title={editingService ? "Editar Servicio" : "Agregar Servicio"} size="md">
+        <form onSubmit={handleSaveService} className="space-y-4">
+          <div>
+            <label className={labelClass}>Nombre del Servicio *</label>
+            <input className={inputClass} placeholder="Ej: Limpieza Dental" value={serviceForm.name}
+              onChange={e => setServiceForm({ ...serviceForm, name: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>Precio (S/) *</label>
+              <input className={inputClass} type="number" step="0.01" min="0" placeholder="0.00" value={serviceForm.price}
+                onChange={e => setServiceForm({ ...serviceForm, price: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Precio Mínimo (S/)</label>
+              <input className={inputClass} type="number" step="0.01" min="0" placeholder="0.00" value={serviceForm.min_price}
+                onChange={e => setServiceForm({ ...serviceForm, min_price: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Categoría</label>
+              <input className={inputClass} placeholder="Ej: Preventivo" value={serviceForm.category}
+                onChange={e => setServiceForm({ ...serviceForm, category: e.target.value })} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="tertiary" size="md" onClick={() => setShowServiceModal(false)} type="button">Cancelar</Button>
+            <Button variant="primary" size="md" type="submit" disabled={saving}>
+              {saving ? "Guardando..." : editingService ? "Guardar Cambios" : "Crear Servicio"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Branch Modal */}
+      <Modal open={showBranchModal} onClose={() => setShowBranchModal(false)} title={editingBranch ? "Editar Sede" : "Agregar Sede"} size="md">
+        <form onSubmit={handleSaveBranch} className="space-y-4">
+          <div>
+            <label className={labelClass}>Nombre de la Sede *</label>
+            <input className={inputClass} placeholder="Ej: Sede Central" value={branchForm.name}
+              onChange={e => setBranchForm({ ...branchForm, name: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>Dirección</label>
+            <input className={inputClass} placeholder="Ej: Av. Principal 1234" value={branchForm.address}
+              onChange={e => setBranchForm({ ...branchForm, address: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Teléfono</label>
+              <input className={inputClass} type="tel" placeholder="Ej: +51 999 999 999" value={branchForm.phone}
+                onChange={e => setBranchForm({ ...branchForm, phone: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Email</label>
+              <input className={inputClass} type="email" placeholder="Ej: sede@tuconsul.com" value={branchForm.email}
+                onChange={e => setBranchForm({ ...branchForm, email: e.target.value })} />
+            </div>
+          </div>
+          <label className="flex items-center gap-3 p-3 bg-surface-alt rounded-[10px] cursor-pointer">
+            <input type="checkbox" checked={branchForm.is_main}
+              onChange={e => setBranchForm({ ...branchForm, is_main: e.target.checked })}
+              className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+            <div>
+              <p className="text-[0.875rem] font-medium text-foreground">Sede Principal</p>
+              <p className="text-[0.75rem] text-foreground-secondary">Marcar esta sede como la ubicación principal de la clínica</p>
+            </div>
+          </label>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="tertiary" size="md" onClick={() => setShowBranchModal(false)} type="button">Cancelar</Button>
+            <Button variant="primary" size="md" type="submit" disabled={saving}>
+              {saving ? "Guardando..." : editingBranch ? "Guardar Cambios" : "Crear Sede"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
       {/* Create User Modal */}
       <Modal open={showCreateUser} onClose={() => setShowCreateUser(false)} title="Agregar Usuario" size="md">
         <form onSubmit={handleCreateUser} className="space-y-4">
@@ -473,7 +1034,7 @@ export function Settings() {
               onChange={e => setUserForm({ ...userForm, email: e.target.value })} />
           </div>
           <div>
-            <Input label="Contraseña *" type="password" placeholder="Mínimo 6 caracteres" value={userForm.password}
+            <Input label="Contraseña *" type="password" placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número" value={userForm.password}
               onChange={e => setUserForm({ ...userForm, password: e.target.value })} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Card, CardContent } from "../components/ui/card";
@@ -30,23 +30,45 @@ export function Patients() {
   const [form, setForm] = useState({
     full_name: "", email: "", phone: "", address: "", birthdate: "", blood_type: "", allergies: "",
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const filteredPatients = patients.filter(patient => {
+  const filteredPatients = useMemo(() => patients.filter(patient => {
     const matchesSearch = patient.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (patient.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (patient.phone || "").includes(searchTerm);
     const matchesStatus = statusFilter === "all" || patient.status === statusFilter;
     const matchesTag = !tagFilter || (patient.interest_tags ?? []).includes(tagFilter);
     return matchesSearch && matchesStatus && matchesTag;
-  });
+  }), [patients, searchTerm, statusFilter, tagFilter]);
 
   function resetForm() {
     setForm({ full_name: "", email: "", phone: "", address: "", birthdate: "", blood_type: "", allergies: "" });
+    setFormErrors({});
+  }
+
+  function validateField(field: string, value: string) {
+    const errors = { ...formErrors };
+    if (field === "full_name") {
+      errors.full_name = value.trim() ? "" : "El nombre es obligatorio";
+    }
+    if (field === "email" && value.trim()) {
+      errors.email = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim()) ? "" : "Formato de email inválido";
+    } else if (field === "email") {
+      errors.email = "";
+    }
+    if (field === "birthdate" && value) {
+      errors.birthdate = new Date(value) > new Date() ? "No puede ser fecha futura" : "";
+    }
+    setFormErrors(errors);
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.full_name.trim()) { toast.error("El nombre es obligatorio"); return; }
+    const errors: Record<string, string> = {};
+    if (!form.full_name.trim()) errors.full_name = "El nombre es obligatorio";
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) errors.email = "Formato de email inválido";
+    if (form.birthdate && new Date(form.birthdate) > new Date()) errors.birthdate = "No puede ser fecha futura";
+    if (Object.values(errors).some(e => e)) { setFormErrors(errors); return; }
     setSaving(true);
     const { error } = await createPatient({
       full_name: form.full_name.trim(),
@@ -80,13 +102,14 @@ export function Patients() {
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
               <input type="text" placeholder="Buscar paciente por nombre, email o teléfono..." value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)} aria-label="Buscar pacientes"
                 className="w-full h-10 pl-10 pr-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150" />
             </div>
             <select
               className="h-10 px-3 bg-surface-alt border border-border rounded-[10px] text-[0.8125rem] text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               value={tagFilter}
               onChange={(e) => setTagFilter(e.target.value)}
+              aria-label="Filtrar por tag"
             >
               <option value="">Todos los tags</option>
               {INTEREST_TAGS.map(tag => (
@@ -175,7 +198,16 @@ export function Patients() {
               {filteredPatients.length === 0 && (
                 <div className="text-center py-12">
                   <Search className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
-                  <p className="text-[0.875rem] text-foreground-secondary">No se encontraron pacientes</p>
+                  <p className="text-[0.875rem] text-foreground-secondary">
+                    {searchTerm || statusFilter !== "all" || tagFilter
+                      ? "No se encontraron pacientes con esos filtros"
+                      : "Aún no hay pacientes registrados"}
+                  </p>
+                  {!searchTerm && statusFilter === "all" && !tagFilter && (
+                    <Button variant="primary" size="sm" className="mt-3" onClick={() => setShowCreateModal(true)}>
+                      <Plus className="w-4 h-4 mr-1" />Agregar primer paciente
+                    </Button>
+                  )}
                 </div>
               )}
             </>
@@ -187,15 +219,27 @@ export function Patients() {
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
             <label className={labelClass}>Nombre Completo *</label>
-            <input type="text" className={inputClass} placeholder="Nombre y apellido" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
+            <input type="text" className={`${inputClass} ${formErrors.full_name ? "!border-danger" : ""}`} placeholder="Nombre y apellido" value={form.full_name}
+              onChange={e => { setForm({ ...form, full_name: e.target.value }); validateField("full_name", e.target.value); }} />
+            {formErrors.full_name && <p className="text-[0.75rem] text-danger mt-1">{formErrors.full_name}</p>}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className={labelClass}>Email</label><input type="email" className={inputClass} placeholder="correo@ejemplo.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-            <div><label className={labelClass}>Teléfono</label><input type="tel" className={inputClass} placeholder="+54 11 1234-5678" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
+            <div>
+              <label className={labelClass}>Email</label>
+              <input type="email" className={`${inputClass} ${formErrors.email ? "!border-danger" : ""}`} placeholder="correo@ejemplo.com" value={form.email}
+                onChange={e => { setForm({ ...form, email: e.target.value }); validateField("email", e.target.value); }} />
+              {formErrors.email && <p className="text-[0.75rem] text-danger mt-1">{formErrors.email}</p>}
+            </div>
+            <div><label className={labelClass}>Teléfono</label><input type="tel" className={inputClass} placeholder="+51 999 999 999" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
           </div>
           <div><label className={labelClass}>Dirección</label><input type="text" className={inputClass} placeholder="Av. Principal 1234" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className={labelClass}>Fecha de Nacimiento</label><input type="date" className={inputClass} value={form.birthdate} onChange={e => setForm({ ...form, birthdate: e.target.value })} /></div>
+            <div>
+              <label className={labelClass}>Fecha de Nacimiento</label>
+              <input type="date" className={`${inputClass} ${formErrors.birthdate ? "!border-danger" : ""}`} value={form.birthdate}
+                onChange={e => { setForm({ ...form, birthdate: e.target.value }); validateField("birthdate", e.target.value); }} />
+              {formErrors.birthdate && <p className="text-[0.75rem] text-danger mt-1">{formErrors.birthdate}</p>}
+            </div>
             <div>
               <label className={labelClass}>Grupo Sanguíneo</label>
               <select className={inputClass} value={form.blood_type} onChange={e => setForm({ ...form, blood_type: e.target.value })}>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Search, X, ChevronDown } from "lucide-react";
 import { inputClass } from "../modals/form-classes";
@@ -25,9 +25,9 @@ export function SearchableSelect({ options, value, onChange, placeholder = "Busc
 
   const selected = options.find(o => o.value === value);
 
-  const filtered = search.trim()
+  const filtered = useMemo(() => search.trim()
     ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
-    : options;
+    : options, [options, search]);
 
   const updatePos = useCallback(() => {
     if (triggerRef.current) {
@@ -93,7 +93,7 @@ export function SearchableSelect({ options, value, onChange, placeholder = "Busc
         </span>
         <div className="flex items-center gap-1 flex-shrink-0">
           {selected && (
-            <span onClick={handleClear} className="p-0.5 hover:bg-border rounded transition-colors">
+            <span onClick={handleClear} role="button" aria-label="Limpiar selección" className="p-0.5 hover:bg-border rounded transition-colors cursor-pointer">
               <X className="w-3.5 h-3.5 text-foreground-secondary" />
             </span>
           )}
@@ -111,6 +111,7 @@ export function SearchableSelect({ options, value, onChange, placeholder = "Busc
             <Search className="w-4 h-4 text-foreground-secondary flex-shrink-0" />
             <input ref={inputRef} type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Escribir para buscar..."
+              aria-label="Buscar en opciones"
               className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
           </div>
           {/* Options list */}

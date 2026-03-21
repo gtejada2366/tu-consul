@@ -249,14 +249,16 @@ export function DoctorDetail() {
                 {/* Header: empty cell + 7 day columns */}
                 <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border sticky top-0 bg-surface z-10">
                   <div className="border-r border-border" />
-                  {weekDays.map((d, i) => {
-                    const isToday = formatDate(d) === formatDate(new Date());
-                    const isSelected = formatDate(d) === formatDate(currentDate);
+                  {weekDays.map((d) => {
+                    const dateStr = formatDate(d);
+                    const dayIdx = weekDays.indexOf(d);
+                    const isToday = dateStr === formatDate(new Date());
+                    const isSelected = dateStr === formatDate(currentDate);
                     return (
-                      <button key={i} onClick={() => { setCurrentDate(new Date(d)); setView("day"); }}
+                      <button key={dateStr} onClick={() => { setCurrentDate(new Date(d)); setView("day"); }}
                         className={`py-3 text-center border-r border-border last:border-r-0 transition-colors hover:bg-surface-alt
                           ${isToday ? "bg-primary/5" : ""} ${isSelected ? "bg-primary/10" : ""}`}>
-                        <p className="text-[0.6875rem] font-medium text-foreground-secondary">{WEEK_DAY_NAMES[i]}</p>
+                        <p className="text-[0.6875rem] font-medium text-foreground-secondary">{WEEK_DAY_NAMES[dayIdx]}</p>
                         <p className={`text-[1rem] font-semibold mt-0.5 ${isToday ? "text-primary" : "text-foreground"}`}>{d.getDate()}</p>
                       </button>
                     );
@@ -271,7 +273,7 @@ export function DoctorDetail() {
                         {to12h(time)}
                       </div>
                       {/* Day cells for this time slot */}
-                      {weekDays.map((d, i) => {
+                      {weekDays.map((d) => {
                         const dateStr = formatDate(d);
                         const isToday = dateStr === formatDate(new Date());
                         const slotApts = weekAppointments.filter(a => {
@@ -281,7 +283,7 @@ export function DoctorDetail() {
                           return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
                         });
                         return (
-                          <div key={i} className={`border-r border-border last:border-r-0 p-0.5 min-h-[48px] ${isToday ? "bg-primary/5" : ""}`}>
+                          <div key={dateStr} className={`border-r border-border last:border-r-0 p-0.5 min-h-[48px] ${isToday ? "bg-primary/5" : ""}`}>
                             {slotApts.map(apt => {
                               const tc = getTypeColor(apt.type);
                               return (

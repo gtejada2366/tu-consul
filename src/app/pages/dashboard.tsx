@@ -6,7 +6,6 @@ import { Loading } from "../components/ui/loading";
 import {
   Calendar,
   Users,
-  TrendingUp,
   DollarSign,
   Clock,
   Plus
@@ -16,7 +15,7 @@ import { useDashboard } from "../hooks/use-dashboard";
 import { STATUS_COLORS, STATUS_LABELS, to12h } from "../lib/constants";
 
 export function Dashboard() {
-  const { stats, todayAppointments, weeklyData, loading, canSeeRevenue } = useDashboard();
+  const { todayAppointments, weeklyData, loading } = useDashboard();
 
   const today = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
@@ -24,37 +23,6 @@ export function Dashboard() {
     month: 'long',
     year: 'numeric'
   });
-
-  const kpiData = [
-    {
-      title: "Citas Hoy",
-      value: String(stats.appointments_today),
-      icon: Calendar,
-      color: "text-primary",
-      bgColor: "bg-primary/10"
-    },
-    {
-      title: "Ocupación",
-      value: `${stats.occupancy_pct}%`,
-      icon: TrendingUp,
-      color: "text-success",
-      bgColor: "bg-success/10"
-    },
-    {
-      title: "Pacientes Atendidos",
-      value: String(stats.patients_attended),
-      icon: Users,
-      color: "text-warning",
-      bgColor: "bg-warning/10"
-    },
-    ...(canSeeRevenue ? [{
-      title: "Ingresos del Día",
-      value: `S/${stats.revenue_today.toLocaleString()}`,
-      icon: DollarSign,
-      color: "text-primary",
-      bgColor: "bg-primary/10"
-    }] : []),
-  ];
 
   const chartData = weeklyData.map(d => ({ day: d.day, citas: d.appointments }));
 
@@ -80,29 +48,6 @@ export function Dashboard() {
             Nueva Cita
           </Button>
         </Link>
-      </div>
-
-      {/* KPI Cards */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${canSeeRevenue ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}>
-        {kpiData.map((kpi, index) => (
-          <Card key={index} className="hover:shadow-md transition-shadow duration-150">
-            <div className="p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">
-                    {kpi.title}
-                  </p>
-                  <p className="text-[1.75rem] font-semibold text-foreground leading-none">
-                    {kpi.value}
-                  </p>
-                </div>
-                <div className={`w-12 h-12 rounded-[10px] ${kpi.bgColor} flex items-center justify-center flex-shrink-0`}>
-                  <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
-                </div>
-              </div>
-            </div>
-          </Card>
-        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

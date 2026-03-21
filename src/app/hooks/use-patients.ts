@@ -18,7 +18,9 @@ export function usePatients() {
       .eq("clinic_id", clinic.id)
       .order("full_name");
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error fetching patients:", error.message);
+    } else if (data) {
       setPatients(data as unknown as PatientWithStats[]);
     }
     setLoading(false);
@@ -49,7 +51,9 @@ export function usePatient(id: string | undefined) {
       .eq("clinic_id", clinic.id)
       .single();
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error fetching patient:", error.message);
+    } else if (data) {
       setPatient(data as unknown as PatientWithStats);
     }
     setLoading(false);
