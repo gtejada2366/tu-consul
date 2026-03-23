@@ -245,6 +245,7 @@ export interface PotentialTreatment {
   patient_id: string;
   service: string;
   estimated_amount: number;
+  quantity: number;
   notes: string | null;
   status: "pending" | "completed" | "cancelled";
   created_at: string;

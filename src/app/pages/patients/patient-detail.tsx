@@ -76,7 +76,7 @@ export function PatientDetail() {
   const [potentialLoading, setPotentialLoading] = useState(false);
   const [showAddPotentialModal, setShowAddPotentialModal] = useState(false);
   const [deletingTreatmentId, setDeletingTreatmentId] = useState<string | null>(null);
-  const [potentialForm, setPotentialForm] = useState({ service: "", estimated_amount: "", notes: "" });
+  const [potentialForm, setPotentialForm] = useState({ service: "", estimated_amount: "", quantity: "1", notes: "" });
 
   const [aptForm, setAptForm] = useState({ date: toLocalDateStr(new Date()), start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "", doctor_id: "" });
   const [conForm, setConForm] = useState({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
@@ -202,12 +202,15 @@ export function PatientDetail() {
     if (potentialForm.estimated_amount && (isNaN(estAmount) || estAmount < 0)) {
       toast.error("El monto estimado debe ser un número válido"); return;
     }
+    const qty = parseInt(potentialForm.quantity) || 1;
+    if (qty < 1) { toast.error("La cantidad debe ser al menos 1"); return; }
     setSaving(true);
     const { error } = await supabase.from("potential_treatments").insert({
       clinic_id: clinic.id,
       patient_id: id,
       service: potentialForm.service.trim(),
       estimated_amount: estAmount > 0 ? estAmount : 0,
+      quantity: qty,
       notes: potentialForm.notes.trim() || null,
       status: "pending",
     } as Record<string, unknown>);
@@ -216,7 +219,7 @@ export function PatientDetail() {
     else {
       toast.success("Servicio agregado");
       setShowAddPotentialModal(false);
-      setPotentialForm({ service: "", estimated_amount: "", notes: "" });
+      setPotentialForm({ service: "", estimated_amount: "", quantity: "1", notes: "" });
       fetchPotentialTreatments();
     }
   }
@@ -465,7 +468,7 @@ export function PatientDetail() {
                   <p className="text-[0.75rem] text-foreground-secondary mt-0.5">Servicios pendientes y realizados para este paciente</p>
                 </div>
                 <Button variant="primary" size="sm" onClick={() => {
-                  setPotentialForm({ service: "", estimated_amount: "", notes: "" });
+                  setPotentialForm({ service: "", estimated_amount: "", quantity: "1", notes: "" });
                   setShowAddPotentialModal(true);
                 }}><Plus className="w-4 h-4 mr-1" />Agregar</Button>
               </div>
@@ -501,7 +504,11 @@ export function PatientDetail() {
                       {potentialTreatments.length > 0 && (
                         <div className="space-y-2">
                           <h4 className="text-[0.8125rem] font-semibold text-foreground-secondary uppercase tracking-wide">Servicios Planificados</h4>
-                          {potentialTreatments.map((t) => (
+                          {potentialTreatments.map((t) => {
+                            const qty = t.quantity || 1;
+                            const unitPrice = Number(t.estimated_amount);
+                            const lineTotal = unitPrice * qty;
+                            return (
                             <div key={t.id} className={`flex items-center gap-3 p-4 rounded-[10px] border transition-all ${t.status === "completed" ? "border-success/30 bg-success/5" : "border-border"}`}>
                               <button
                                 onClick={() => togglePotentialStatus(t)}
@@ -514,11 +521,14 @@ export function PatientDetail() {
                                 <p className={`text-[0.875rem] font-medium ${t.status === "completed" ? "text-foreground-secondary line-through" : "text-foreground"}`}>
                                   {t.service}
                                 </p>
-                                {t.notes && <p className="text-[0.75rem] text-foreground-secondary truncate">{t.notes}</p>}
+                                <p className="text-[0.75rem] text-foreground-secondary">
+                                  {qty > 1 ? `${qty} × S/${unitPrice.toFixed(2)}` : `S/${unitPrice.toFixed(2)}`}
+                                  {t.notes ? ` · ${t.notes}` : ""}
+                                </p>
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <span className={`text-[0.875rem] font-semibold ${t.status === "completed" ? "text-success" : "text-primary"}`}>
-                                  S/{Number(t.estimated_amount).toFixed(2)}
+                                  S/{lineTotal.toFixed(2)}
                                 </span>
                                 <button onClick={() => setDeletingTreatmentId(t.id)} aria-label="Eliminar servicio"
                                   className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-danger/10 text-foreground-secondary hover:text-danger transition-colors">
@@ -526,13 +536,14 @@ export function PatientDetail() {
                                 </button>
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
 
                           {/* Total Potencial */}
                           <div className="flex items-center justify-between p-4 bg-primary/5 rounded-[10px] border border-primary/20 mt-2">
                             <span className="text-[0.875rem] font-semibold text-foreground">Total Pendiente</span>
                             <span className="text-[1.125rem] font-bold text-primary">
-                              S/{potentialTreatments.filter(t => t.status === "pending").reduce((sum, t) => sum + Number(t.estimated_amount), 0).toFixed(2)}
+                              S/{potentialTreatments.filter(t => t.status === "pending").reduce((sum, t) => sum + Number(t.estimated_amount) * (t.quantity || 1), 0).toFixed(2)}
                             </span>
                           </div>
                         </div>
@@ -611,12 +622,31 @@ export function PatientDetail() {
               ))}
             </select>
           </div>
-          <div>
-            <label className={labelClass}>Monto Estimado (S/)</label>
-            <input type="number" step="0.01" min="0" className={inputClass} placeholder="0.00"
-              value={potentialForm.estimated_amount}
-              onChange={e => setPotentialForm({ ...potentialForm, estimated_amount: e.target.value })} />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Precio Unitario (S/)</label>
+              <input type="number" step="0.01" min="0" className={inputClass} placeholder="0.00"
+                value={potentialForm.estimated_amount}
+                onChange={e => setPotentialForm({ ...potentialForm, estimated_amount: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Cantidad</label>
+              <input type="number" min="1" className={inputClass} placeholder="1"
+                value={potentialForm.quantity}
+                onChange={e => setPotentialForm({ ...potentialForm, quantity: e.target.value })} />
+            </div>
           </div>
+          {(() => {
+            const price = parseFloat(potentialForm.estimated_amount) || 0;
+            const qty = parseInt(potentialForm.quantity) || 1;
+            const total = price * qty;
+            return total > 0 ? (
+              <div className="flex items-center justify-between p-3 bg-primary/5 rounded-[10px] border border-primary/20">
+                <span className="text-[0.8125rem] text-foreground-secondary">Total: {qty} × S/{price.toFixed(2)}</span>
+                <span className="text-[1rem] font-bold text-primary">S/{total.toFixed(2)}</span>
+              </div>
+            ) : null;
+          })()}
           <div>
             <label className={labelClass}>Notas</label>
             <textarea className={textareaClass} placeholder="Observaciones..."
