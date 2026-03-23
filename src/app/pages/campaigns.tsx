@@ -22,16 +22,48 @@ const MESSAGE_TEMPLATES = [
     text: "Hola {nombre}, te recordamos que tienes una cita programada en nuestra clínica. Te esperamos. Saludos!",
   },
   {
-    name: "Promoción",
+    name: "Confirmación de cita",
+    text: "Hola {nombre}, queremos confirmar tu cita en nuestra clínica dental. Por favor responde SI para confirmar o comunícate con nosotros si necesitas reprogramar. Gracias!",
+  },
+  {
+    name: "Promoción general",
     text: "Hola {nombre}, tenemos una promoción especial para ti. Contáctanos para más información. Saludos!",
   },
   {
-    name: "Seguimiento",
+    name: "Promoción blanqueamiento",
+    text: "Hola {nombre}, este mes tenemos una promoción especial en blanqueamiento dental. Luce una sonrisa más brillante! Escríbenos para conocer los detalles y agendar tu cita.",
+  },
+  {
+    name: "Promoción limpieza",
+    text: "Hola {nombre}, es momento de tu limpieza dental profesional. Este mes tenemos precios especiales. Agenda tu cita y mantén tu sonrisa saludable!",
+  },
+  {
+    name: "Seguimiento post-tratamiento",
     text: "Hola {nombre}, queremos saber cómo te encuentras después de tu última visita. Si tienes alguna consulta no dudes en escribirnos. Saludos!",
+  },
+  {
+    name: "Seguimiento de tratamiento en curso",
+    text: "Hola {nombre}, te recordamos que tienes un tratamiento en curso con nosotros. Es importante continuar con tus citas programadas para obtener los mejores resultados. Escríbenos para agendar tu próxima sesión!",
+  },
+  {
+    name: "Cobro pendiente",
+    text: "Hola {nombre}, te recordamos que tienes un saldo pendiente en nuestra clínica. Si tienes alguna duda sobre tu estado de cuenta, no dudes en comunicarte con nosotros. Gracias!",
   },
   {
     name: "Reactivación",
     text: "Hola {nombre}, hace tiempo que no te vemos por la clínica. Recuerda que es importante mantener tus controles dentales al día. Te esperamos!",
+  },
+  {
+    name: "Cumpleaños",
+    text: "Hola {nombre}, desde nuestra clínica dental te deseamos un muy feliz cumpleaños! Como regalo, tenemos un descuento especial para ti en tu próxima visita. Agenda tu cita!",
+  },
+  {
+    name: "Referidos",
+    text: "Hola {nombre}, sabías que si recomiendas nuestra clínica a un familiar o amigo, ambos reciben un beneficio especial? Pregúntanos cómo participar!",
+  },
+  {
+    name: "Encuesta de satisfacción",
+    text: "Hola {nombre}, tu opinión es muy importante para nosotros. Nos gustaría saber cómo fue tu experiencia en nuestra clínica. Podrías regalarnos unos minutos para contarnos? Gracias!",
   },
 ];
 
