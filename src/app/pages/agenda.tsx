@@ -508,48 +508,68 @@ export function Agenda() {
                     );
                   })}
                 </div>
-                {/* Time grid: hour rows × day columns */}
+                {/* Time grid: 1-hour blocks with 30-min sub-rows × day columns */}
                 <div className="overflow-y-auto max-h-[500px]">
-                  {timeSlots.map((time) => (
-                    <div key={time} className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border last:border-0">
-                      {/* Hour label */}
-                      <div className="border-r border-border py-2 px-1 text-[0.6875rem] text-foreground-secondary font-medium text-right pr-2">
-                        {to12h(time)}
+                  {(() => {
+                    const hourBlocks: { hour: string; slots: string[] }[] = [];
+                    for (const time of timeSlots) {
+                      const isHalf = time.endsWith(":30");
+                      if (!isHalf) {
+                        hourBlocks.push({ hour: time, slots: [time] });
+                      } else if (hourBlocks.length > 0) {
+                        hourBlocks[hourBlocks.length - 1].slots.push(time);
+                      } else {
+                        hourBlocks.push({ hour: time, slots: [time] });
+                      }
+                    }
+                    return hourBlocks.map(({ hour, slots }) => (
+                      <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border last:border-0">
+                        {/* Hour label spanning the full block */}
+                        <div className="border-r border-border py-1 px-1 text-[0.6875rem] text-foreground-secondary font-medium text-right pr-2">
+                          {to12h(hour)}
+                        </div>
+                        {/* Day columns, each with sub-rows for 30-min slots */}
+                        {weekDays.map((d) => {
+                          const dateStr = formatDate(d);
+                          const isToday = dateStr === formatDate(new Date());
+                          const isDayDropTarget = dropTarget === `date:${dateStr}`;
+                          return (
+                            <div key={dateStr} className={`border-r border-border last:border-r-0 ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15" : ""}`}
+                              onDragOver={e => handleDragOver(e, `date:${dateStr}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnDay(e, dateStr)}>
+                              {slots.map((time, slotIdx) => {
+                                const isHalf = slotIdx > 0;
+                                const slotApts = weekAppointments.filter(a => {
+                                  if (a.date !== dateStr || a.start_time?.slice(0, 5) !== time) return false;
+                                  if (!agendaSearch.trim()) return true;
+                                  const q = agendaSearch.toLowerCase();
+                                  return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+                                });
+                                return (
+                                  <div key={time}
+                                    className={`p-0.5 min-h-[28px] transition-colors cursor-pointer ${isHalf ? "border-t border-dashed border-border/50" : ""} ${slotApts.length === 0 ? "hover:bg-surface-alt" : ""}`}
+                                    onClick={() => { if (slotApts.length === 0) openCreateModal(time, dateStr); }}>
+                                    {slotApts.map(apt => {
+                                      const tc = getTypeColor(apt.type);
+                                      return (
+                                        <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
+                                          onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
+                                          className={`p-1.5 rounded-[6px] border-l-3 transition-all duration-150 text-left ${tc.bg} ${tc.border}
+                                            ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
+                                            ${draggedAptId === apt.id ? "opacity-50" : ""} mb-0.5`}>
+                                          <p className="text-[0.625rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
+                                          <p className="text-[0.5625rem] text-foreground-secondary truncate">{to12h(time)} • {apt.type}</p>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
                       </div>
-                      {/* Day cells for this time slot */}
-                      {weekDays.map((d) => {
-                        const dateStr = formatDate(d);
-                        const isToday = dateStr === formatDate(new Date());
-                        const isDayDropTarget = dropTarget === `date:${dateStr}`;
-                        const slotApts = weekAppointments.filter(a => {
-                          if (a.date !== dateStr || a.start_time?.slice(0, 5) !== time) return false;
-                          if (!agendaSearch.trim()) return true;
-                          const q = agendaSearch.toLowerCase();
-                          return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
-                        });
-                        return (
-                          <div key={dateStr} className={`border-r border-border last:border-r-0 p-0.5 min-h-[48px] transition-colors cursor-pointer
-                            ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15" : ""} ${slotApts.length === 0 ? "hover:bg-surface-alt" : ""}`}
-                            onClick={() => { if (slotApts.length === 0) openCreateModal(time, dateStr); }}
-                            onDragOver={e => handleDragOver(e, `date:${dateStr}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnDay(e, dateStr)}>
-                            {slotApts.map(apt => {
-                              const tc = getTypeColor(apt.type);
-                              return (
-                                <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
-                                  onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
-                                  className={`p-1.5 rounded-[6px] border-l-3 transition-all duration-150 text-left ${tc.bg} ${tc.border}
-                                    ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
-                                    ${draggedAptId === apt.id ? "opacity-50" : ""} mb-0.5`}>
-                                  <p className="text-[0.625rem] font-semibold text-foreground truncate">{apt.patient?.full_name || "-"}</p>
-                                  <p className="text-[0.5625rem] text-foreground-secondary truncate">{apt.type}</p>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
               </div>
             </div>
