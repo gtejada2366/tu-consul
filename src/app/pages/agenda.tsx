@@ -80,7 +80,8 @@ export function Agenda() {
   const [agendaSearch, setAgendaSearch] = useState("");
   const { users: clinicUsers } = useClinicUsers();
   const { services: clinicServicesList } = useClinicServices();
-  const { clinic } = useAuth();
+  const { clinic, user } = useAuth();
+  const isDoctor = user?.role === "doctor";
   const activeServices = useMemo(() => clinicServicesList.filter(s => s.is_active), [clinicServicesList]);
   const doctors = useMemo(() => clinicUsers.filter(u => u.role === "doctor" || u.role === "admin"), [clinicUsers]);
   const [aptForm, setAptForm] = useState({ patient_id: "", doctor_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "" });
@@ -491,7 +492,7 @@ export function Agenda() {
                                       <div className="flex items-start justify-between gap-2">
                                         <div className="flex-1 min-w-0">
                                           <p className="font-semibold text-foreground text-[0.8125rem] truncate">{apt.patient?.full_name || "-"}</p>
-                                          <p className="text-[0.6875rem] text-foreground-secondary mt-0.5">{to12h(time)} • {apt.type} • {apt.doctor?.full_name?.startsWith("Dr.") ? apt.doctor.full_name : `Dr. ${apt.doctor?.full_name || "-"}`}</p>
+                                          <p className="text-[0.6875rem] text-foreground-secondary mt-0.5">{to12h(time)} • {apt.type}{!isDoctor && ` • ${apt.doctor?.full_name?.startsWith("Dr.") ? apt.doctor.full_name : `Dr. ${apt.doctor?.full_name || "-"}`}`}</p>
                                         </div>
                                         <Badge variant={STATUS_COLORS[apt.status]}>{STATUS_LABELS[apt.status]}</Badge>
                                       </div>
@@ -624,7 +625,7 @@ export function Agenda() {
           <div className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Paciente</p><p className="font-semibold text-foreground">{selectedAppointment.patient?.full_name || "-"}</p></div></div>
-              <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Doctor</p><p className="font-semibold text-foreground">{selectedAppointment.doctor?.full_name || "-"}</p></div></div>
+              {!isDoctor && <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Doctor</p><p className="font-semibold text-foreground">{selectedAppointment.doctor?.full_name || "-"}</p></div></div>}
               <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><Clock className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Horario</p><p className="font-semibold text-foreground">{to12h(selectedAppointment.start_time)} ({selectedAppointment.duration_minutes} min)</p></div></div>
               <div className="flex items-start gap-3"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><CalendarIcon className="w-5 h-5 text-primary" /></div><div><p className="text-[0.75rem] text-foreground-secondary">Tipo</p><p className="font-semibold text-foreground">{selectedAppointment.type}</p></div></div>
               {selectedAppointment.notes && (
@@ -693,13 +694,15 @@ export function Agenda() {
               onChange={v => setAptForm({ ...aptForm, patient_id: v })}
             />
           </div>
-          <div>
-            <label className={labelClass}>Doctor / Especialista</label>
-            <select className={inputClass} value={aptForm.doctor_id} onChange={e => setAptForm({ ...aptForm, doctor_id: e.target.value })}>
-              <option value="">Yo mismo (por defecto)</option>
-              {doctors.map(d => <option key={d.id} value={d.id}>{d.full_name}{d.specialty ? ` — ${d.specialty}` : ""}</option>)}
-            </select>
-          </div>
+          {!isDoctor && (
+            <div>
+              <label className={labelClass}>Doctor / Especialista</label>
+              <select className={inputClass} value={aptForm.doctor_id} onChange={e => setAptForm({ ...aptForm, doctor_id: e.target.value })}>
+                <option value="">Yo mismo (por defecto)</option>
+                {doctors.map(d => <option key={d.id} value={d.id}>{d.full_name}{d.specialty ? ` — ${d.specialty}` : ""}</option>)}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Fecha *</label><input type="date" className={inputClass} value={aptForm.date} onChange={e => { setAptForm({ ...aptForm, date: e.target.value }); setOverlapConfirmed(false); }} /></div>
             <div><label className={labelClass}>Hora *</label>
@@ -747,13 +750,15 @@ export function Agenda() {
       {/* Edit Appointment Modal */}
       <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Cita" size="md">
         <form onSubmit={handleEditApt} className="space-y-4">
-          <div>
-            <label className={labelClass}>Doctor / Especialista</label>
-            <select className={inputClass} value={editForm.doctor_id} onChange={e => setEditForm({ ...editForm, doctor_id: e.target.value })}>
-              <option value="">Sin cambio</option>
-              {doctors.map(d => <option key={d.id} value={d.id}>{d.full_name}{d.specialty ? ` — ${d.specialty}` : ""}</option>)}
-            </select>
-          </div>
+          {!isDoctor && (
+            <div>
+              <label className={labelClass}>Doctor / Especialista</label>
+              <select className={inputClass} value={editForm.doctor_id} onChange={e => setEditForm({ ...editForm, doctor_id: e.target.value })}>
+                <option value="">Sin cambio</option>
+                {doctors.map(d => <option key={d.id} value={d.id}>{d.full_name}{d.specialty ? ` — ${d.specialty}` : ""}</option>)}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Fecha</label><input type="date" className={inputClass} value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} /></div>
             <div><label className={labelClass}>Hora</label>

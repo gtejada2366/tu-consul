@@ -5,7 +5,7 @@ import type { AppointmentWithRelations } from "../lib/types";
 import { toLocalDateStr } from "../lib/constants";
 
 export function useAppointments(date: string) {
-  const { clinic } = useAuth();
+  const { clinic, user } = useAuth();
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,12 +13,18 @@ export function useAppointments(date: string) {
     if (!clinic) return;
     setLoading(true);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("appointments")
       .select("*, patient:patients(full_name), doctor:users(full_name)")
       .eq("clinic_id", clinic.id)
-      .eq("date", date)
-      .order("start_time");
+      .eq("date", date);
+
+    // Doctors only see their own appointments
+    if (user?.role === "doctor") {
+      query = query.eq("doctor_id", user.id);
+    }
+
+    const { data, error } = await query.order("start_time");
 
     if (error) {
       console.error("Error fetching appointments:", error.message);
@@ -26,7 +32,7 @@ export function useAppointments(date: string) {
       setAppointments(data as unknown as AppointmentWithRelations[]);
     }
     setLoading(false);
-  }, [clinic, date]);
+  }, [clinic, user, date]);
 
   useEffect(() => {
     fetchAppointments();
@@ -36,7 +42,7 @@ export function useAppointments(date: string) {
 }
 
 export function useWeekAppointments(startDate: string, endDate: string) {
-  const { clinic } = useAuth();
+  const { clinic, user } = useAuth();
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,14 +50,19 @@ export function useWeekAppointments(startDate: string, endDate: string) {
     if (!clinic) return;
     setLoading(true);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("appointments")
       .select("*, patient:patients(full_name), doctor:users(full_name)")
       .eq("clinic_id", clinic.id)
       .gte("date", startDate)
-      .lte("date", endDate)
-      .order("date")
-      .order("start_time");
+      .lte("date", endDate);
+
+    // Doctors only see their own appointments
+    if (user?.role === "doctor") {
+      query = query.eq("doctor_id", user.id);
+    }
+
+    const { data, error } = await query.order("date").order("start_time");
 
     if (error) {
       console.error("Error fetching week appointments:", error.message);
@@ -59,7 +70,7 @@ export function useWeekAppointments(startDate: string, endDate: string) {
       setAppointments(data as unknown as AppointmentWithRelations[]);
     }
     setLoading(false);
-  }, [clinic, startDate, endDate]);
+  }, [clinic, user, startDate, endDate]);
 
   useEffect(() => {
     fetchAppointments();
