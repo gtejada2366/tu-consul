@@ -702,7 +702,11 @@ export function Agenda() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Fecha *</label><input type="date" className={inputClass} value={aptForm.date} onChange={e => { setAptForm({ ...aptForm, date: e.target.value }); setOverlapConfirmed(false); }} /></div>
-            <div><label className={labelClass}>Hora *</label><input type="time" className={inputClass} value={aptForm.start_time} onChange={e => { setAptForm({ ...aptForm, start_time: e.target.value }); setOverlapConfirmed(false); }} /></div>
+            <div><label className={labelClass}>Hora *</label>
+              <select className={inputClass} value={aptForm.start_time} onChange={e => { setAptForm({ ...aptForm, start_time: e.target.value }); setOverlapConfirmed(false); }}>
+                {timeSlots.map(t => <option key={t} value={t}>{to12h(t)}</option>)}
+              </select>
+            </div>
           </div>
           {/* Overlap warning */}
           {aptForm.date && aptForm.start_time && (() => {
@@ -752,7 +756,11 @@ export function Agenda() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Fecha</label><input type="date" className={inputClass} value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} /></div>
-            <div><label className={labelClass}>Hora</label><input type="time" className={inputClass} value={editForm.start_time} onChange={e => setEditForm({ ...editForm, start_time: e.target.value })} /></div>
+            <div><label className={labelClass}>Hora</label>
+              <select className={inputClass} value={editForm.start_time} onChange={e => setEditForm({ ...editForm, start_time: e.target.value })}>
+                {timeSlots.map(t => <option key={t} value={t}>{to12h(t)}</option>)}
+              </select>
+            </div>
           </div>
           {/* Overlap warning */}
           {editForm.date && editForm.start_time && (() => {
