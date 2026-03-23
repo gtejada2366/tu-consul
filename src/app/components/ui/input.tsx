@@ -10,6 +10,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, className = "", type, ...props }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = type === "password";
+    const inputType = isPassword && showPassword ? "text" : (type || "text");
 
     return (
       <div className="space-y-1.5">
@@ -20,8 +21,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative">
           <input
+            {...props}
             ref={ref}
-            type={isPassword && showPassword ? "text" : type}
+            type={inputType}
+            autoComplete={isPassword ? "off" : props.autoComplete}
             className={`
               w-full h-10 px-3 ${isPassword ? "pr-10" : ""} bg-surface border rounded-[10px]
               text-[0.875rem] text-foreground placeholder:text-foreground-secondary
@@ -31,14 +34,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               ${error ? "border-danger" : "border-border"}
               ${className}
             `}
-            {...props}
           />
           {isPassword && (
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              tabIndex={-1}
+              onClick={() => setShowPassword(prev => !prev)}
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-secondary hover:text-foreground transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-10 text-foreground-secondary hover:text-foreground transition-colors"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>

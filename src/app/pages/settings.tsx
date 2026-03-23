@@ -737,8 +737,6 @@ export function Settings() {
                       { key: "new_appointments", label: "Nuevas citas", description: "Recibir notificación cuando se agenda una nueva cita" },
                       { key: "appointment_reminders", label: "Recordatorios de citas", description: "Recordatorios 24 horas antes de cada cita" },
                       { key: "appointment_changes", label: "Cambios en citas", description: "Notificar cuando se modifica o cancela una cita" },
-                      { key: "patient_messages", label: "Mensajes de pacientes", description: "Alertas de nuevos mensajes de pacientes" },
-                      { key: "system_updates", label: "Actualizaciones del sistema", description: "Novedades y mejoras de Tu Consul" },
                     ].map((item) => (
                       <div key={item.key} className="flex items-start justify-between p-4 bg-surface-alt rounded-[10px]">
                         <div className="flex-1">
