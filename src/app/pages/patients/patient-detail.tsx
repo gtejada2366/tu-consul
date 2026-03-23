@@ -20,7 +20,7 @@ import { useAuth } from "../../contexts/auth-context";
 import type { PotentialTreatment } from "../../lib/types";
 import { inputClass, labelClass, textareaClass } from "../../components/modals/form-classes";
 import { SearchableSelect } from "../../components/ui/searchable-select";
-import { APPOINTMENT_TYPES, DURATION_OPTIONS, INTEREST_TAGS, getTagColor, STATUS_COLORS, STATUS_LABELS, toLocalDateStr, to12h } from "../../lib/constants";
+import { APPOINTMENT_TYPES, DURATION_OPTIONS, INTEREST_TAGS, getTagColor, STATUS_COLORS, STATUS_LABELS, toLocalDateStr, to12h, generateTimeSlots } from "../../lib/constants";
 
 // Tab components
 import { PersonalDataTab } from "./tabs/personal-data-tab";
@@ -701,7 +701,11 @@ export function PatientDetail() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Fecha *</label><input type="date" className={inputClass} value={aptForm.date} onChange={e => setAptForm({ ...aptForm, date: e.target.value })} /></div>
-            <div><label className={labelClass}>Hora *</label><input type="time" className={inputClass} value={aptForm.start_time} onChange={e => setAptForm({ ...aptForm, start_time: e.target.value })} /></div>
+            <div><label className={labelClass}>Hora *</label>
+              <select className={inputClass} value={aptForm.start_time} onChange={e => setAptForm({ ...aptForm, start_time: e.target.value })}>
+                {generateTimeSlots().map(t => <option key={t} value={t}>{to12h(t)}</option>)}
+              </select>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Tipo de Cita *</label>
