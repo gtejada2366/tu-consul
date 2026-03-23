@@ -407,42 +407,69 @@ export function Agenda() {
                   </div>
                 )}
                 <div className="p-4 space-y-0">
-                  {timeSlots.map((time) => {
-                    const slotApts = appointments.filter(a => {
-                      if (a.start_time?.slice(0, 5) !== time) return false;
-                      if (!agendaSearch.trim()) return true;
-                      const q = agendaSearch.toLowerCase();
-                      return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
-                    });
-                    const isDropTarget = dropTarget === `time:${time}`;
-                    return (
-                      <div key={time} className={`flex border-b border-border last:border-0 transition-colors ${isDropTarget ? "bg-primary/10" : ""}`}
-                        onDragOver={e => handleDragOver(e, `time:${time}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnTime(e, time)}>
-                        <div className="w-16 py-3 text-[0.75rem] text-foreground-secondary font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => openCreateModal(time)}>{to12h(time)}</div>
-                        <div className="flex-1 py-2 relative">
-                          {slotApts.map((apt) => {
-                            const tc = getTypeColor(apt.type);
+                  {/* Group time slots into 1-hour blocks with two 30-min sub-rows */}
+                  {(() => {
+                    const hourBlocks: { hour: string; slots: string[] }[] = [];
+                    for (const time of timeSlots) {
+                      const isHalf = time.endsWith(":30");
+                      if (!isHalf) {
+                        hourBlocks.push({ hour: time, slots: [time] });
+                      } else if (hourBlocks.length > 0) {
+                        hourBlocks[hourBlocks.length - 1].slots.push(time);
+                      } else {
+                        hourBlocks.push({ hour: time, slots: [time] });
+                      }
+                    }
+                    return hourBlocks.map(({ hour, slots }) => (
+                      <div key={hour} className="flex border-b border-border last:border-0">
+                        {/* Hour label spanning the full block */}
+                        <div className="w-16 py-2 text-[0.75rem] text-foreground-secondary font-medium cursor-pointer hover:text-primary transition-colors flex-shrink-0" onClick={() => openCreateModal(hour)}>
+                          {to12h(hour)}
+                        </div>
+                        {/* Sub-rows for each 30-min slot */}
+                        <div className="flex-1">
+                          {slots.map((time, slotIdx) => {
+                            const slotApts = appointments.filter(a => {
+                              if (a.start_time?.slice(0, 5) !== time) return false;
+                              if (!agendaSearch.trim()) return true;
+                              const q = agendaSearch.toLowerCase();
+                              return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+                            });
+                            const isDropTarget = dropTarget === `time:${time}`;
+                            const isHalf = slotIdx > 0;
                             return (
-                            <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
-                              onClick={() => setSelectedAppointment(apt)}
-                              className={`mb-2 p-3 rounded-[10px] border-l-4 transition-all duration-150 ${tc.bg} ${tc.border}
-                                ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
-                                ${draggedAptId === apt.id ? "opacity-50" : ""}`}>
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-semibold text-foreground text-[0.875rem] truncate">{apt.patient?.full_name || "-"}</p>
-                                  <p className="text-[0.75rem] text-foreground-secondary mt-0.5">{apt.type} • {apt.doctor?.full_name?.startsWith("Dr.") ? apt.doctor.full_name : `Dr. ${apt.doctor?.full_name || "-"}`}</p>
-                                </div>
-                                <Badge variant={STATUS_COLORS[apt.status]}>{STATUS_LABELS[apt.status]}</Badge>
+                              <div key={time}
+                                className={`py-1 transition-colors ${isDropTarget ? "bg-primary/10" : ""} ${isHalf ? "border-t border-dashed border-border/50" : ""}`}
+                                onDragOver={e => handleDragOver(e, `time:${time}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnTime(e, time)}>
+                                {slotApts.map((apt) => {
+                                  const tc = getTypeColor(apt.type);
+                                  return (
+                                    <div key={apt.id} draggable={canDrag(apt)} onDragStart={e => handleDragStart(e, apt)} onDragEnd={handleDragEnd}
+                                      onClick={() => setSelectedAppointment(apt)}
+                                      className={`mb-1 p-2.5 rounded-[10px] border-l-4 transition-all duration-150 ${tc.bg} ${tc.border}
+                                        ${canDrag(apt) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
+                                        ${draggedAptId === apt.id ? "opacity-50" : ""}`}>
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-semibold text-foreground text-[0.8125rem] truncate">{apt.patient?.full_name || "-"}</p>
+                                          <p className="text-[0.6875rem] text-foreground-secondary mt-0.5">{to12h(time)} • {apt.type} • {apt.doctor?.full_name?.startsWith("Dr.") ? apt.doctor.full_name : `Dr. ${apt.doctor?.full_name || "-"}`}</p>
+                                        </div>
+                                        <Badge variant={STATUS_COLORS[apt.status]}>{STATUS_LABELS[apt.status]}</Badge>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                {slotApts.length === 0 && (
+                                  <div onClick={() => openCreateModal(time)}
+                                    className={`h-7 rounded-[6px] cursor-pointer hover:bg-surface-alt transition-colors ${isDropTarget ? "border-2 border-dashed border-primary" : ""}`} />
+                                )}
                               </div>
-                            </div>
                             );
                           })}
-                          {slotApts.length === 0 && <div onClick={() => openCreateModal(time)} className={`h-12 rounded-[8px] cursor-pointer hover:bg-surface-alt transition-colors ${isDropTarget ? "border-2 border-dashed border-primary" : ""}`}></div>}
                         </div>
                       </div>
-                    );
-                  })}
+                    ));
+                  })()}
                 </div>
               </div>
             </div>
