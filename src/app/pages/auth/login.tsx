@@ -12,21 +12,23 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setLoginError("");
 
     const { error } = await signIn(email, password);
 
     if (error) {
-      toast.error("Credenciales incorrectas. Verifica tu email y contraseña.");
+      setLoginError("Credenciales incorrectas. Verifica tu email y contraseña.");
       setLoading(false);
       return;
     }
 
     toast.success("¡Bienvenido!");
-    navigate("/");
+    navigate("/agenda");
   };
 
   return (
@@ -87,6 +89,12 @@ export function Login() {
                 ¿Olvidaste tu contraseña?
               </button>
             </div>
+
+            {loginError && (
+              <p className="text-[0.8125rem] text-danger bg-danger/10 border border-danger/20 rounded-[8px] px-3 py-2 text-center">
+                {loginError}
+              </p>
+            )}
 
             <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
               {loading ? "Ingresando..." : "Iniciar Sesión"}

@@ -68,6 +68,51 @@ CREATE TABLE patients (
   allergies TEXT[] DEFAULT '{}',
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   notes TEXT,
+  -- Personal data (filiation)
+  document_type TEXT,
+  document_number TEXT,
+  gender TEXT,
+  marital_status TEXT,
+  occupation TEXT,
+  nationality TEXT,
+  education_level TEXT,
+  -- Contact extensions
+  phone_mobile TEXT,
+  city TEXT,
+  district TEXT,
+  address_reference TEXT,
+  -- Emergency contact
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  -- Medical background
+  chronic_conditions TEXT[] DEFAULT '{}',
+  current_medications TEXT,
+  previous_surgeries TEXT,
+  hospitalizations TEXT,
+  family_history TEXT,
+  is_pregnant BOOLEAN DEFAULT FALSE,
+  is_breastfeeding BOOLEAN DEFAULT FALSE,
+  smoking BOOLEAN DEFAULT FALSE,
+  alcohol_consumption BOOLEAN DEFAULT FALSE,
+  -- Dental background
+  previous_dental_treatments TEXT,
+  bruxism BOOLEAN DEFAULT FALSE,
+  dental_sensitivity BOOLEAN DEFAULT FALSE,
+  bleeding_gums BOOLEAN DEFAULT FALSE,
+  orthodontic_history BOOLEAN DEFAULT FALSE,
+  last_dental_visit DATE,
+  dental_hygiene_frequency TEXT,
+  dental_notes TEXT,
+  -- Insurance
+  insurance_company TEXT,
+  insurance_plan TEXT,
+  insurance_member_number TEXT,
+  insurance_effective_date DATE,
+  insurance_expiry_date DATE,
+  -- Marketing
+  interest_tags TEXT[] DEFAULT '{}',
+  -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

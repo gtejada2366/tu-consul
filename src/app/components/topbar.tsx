@@ -1,4 +1,4 @@
-import { Search, Bell, ChevronDown, LogOut, User, Menu, Building2 } from "lucide-react";
+import { Search, Bell, ChevronDown, LogOut, User, Menu, Building2, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "../contexts/auth-context";
@@ -107,13 +107,22 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
 
       {/* Right section */}
       <div className="flex items-center gap-1 md:gap-4">
-        {/* Plan Badge - hidden on small */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-surface-alt rounded-[999px]">
-          <div className="w-2 h-2 rounded-full bg-success"></div>
-          <span className="text-[0.75rem] font-medium text-foreground-secondary">
-            {planLabel}
-          </span>
-        </div>
+        {/* Plan Badge / Upgrade CTA - hidden on small */}
+        {clinic?.plan === "premium" ? (
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-surface-alt rounded-[999px]">
+            <div className="w-2 h-2 rounded-full bg-success"></div>
+            <span className="text-[0.75rem] font-medium text-foreground-secondary">{planLabel}</span>
+          </div>
+        ) : (
+          <Link
+            to="/configuracion"
+            onClick={() => {/* will land on billing tab */}}
+            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-[999px] transition-all text-[0.75rem] font-medium"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Upgrade
+          </Link>
+        )}
 
         {/* Notifications */}
         <div className="relative" ref={notificationsRef}>

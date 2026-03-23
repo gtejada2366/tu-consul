@@ -55,6 +55,59 @@ export const PAYMENT_METHODS = [
 
 export const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
+// ============================================================
+// Subscription plans
+// ============================================================
+import type { SubscriptionPlanConfig } from "./types";
+
+export const SUBSCRIPTION_PLANS: SubscriptionPlanConfig[] = [
+  {
+    key: "free",
+    name: "Gratis",
+    price: 0,
+    features: [
+      "Hasta 50 pacientes",
+      "1 usuario",
+      "1 sede",
+      "Agenda básica",
+      "Historia clínica",
+    ],
+    limits: { patients: 50, users: 1, branches: 1 },
+  },
+  {
+    key: "basic",
+    name: "Básico",
+    price: 99,
+    features: [
+      "Hasta 500 pacientes",
+      "3 usuarios",
+      "1 sede",
+      "Agenda + Reportes",
+      "Historia clínica",
+      "Facturación electrónica",
+      "Campañas WhatsApp",
+    ],
+    limits: { patients: 500, users: 3, branches: 1 },
+  },
+  {
+    key: "premium",
+    name: "Premium",
+    price: 199,
+    features: [
+      "Pacientes ilimitados",
+      "Usuarios ilimitados",
+      "Sedes ilimitadas",
+      "Agenda + Reportes",
+      "Historia clínica",
+      "Facturación electrónica",
+      "Campañas WhatsApp",
+      "Laboratorio",
+      "Soporte prioritario",
+    ],
+    limits: { patients: -1, users: -1, branches: -1 },
+  },
+];
+
 // Filiation constants
 export const DOCUMENT_TYPES = ["DNI", "Pasaporte", "CE", "RUC", "Otro"];
 export const GENDERS = ["Masculino", "Femenino", "Otro"];
@@ -210,6 +263,60 @@ export function generateTimeSlots(startTime = "08:00", endTime = "18:30"): strin
 export function toLocalDateStr(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
+
+// ============================================================
+// Odontogram constants
+// ============================================================
+
+/** FDI tooth numbering — 4 quadrants */
+export const TEETH_UPPER_RIGHT = [18, 17, 16, 15, 14, 13, 12, 11]; // Q1
+export const TEETH_UPPER_LEFT  = [21, 22, 23, 24, 25, 26, 27, 28]; // Q2
+export const TEETH_LOWER_LEFT  = [38, 37, 36, 35, 34, 33, 32, 31]; // Q3
+export const TEETH_LOWER_RIGHT = [41, 42, 43, 44, 45, 46, 47, 48]; // Q4
+
+/** Anterior teeth — single root, incisal edge */
+export const ANTERIOR_TEETH = [11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 42, 43];
+
+/** Tooth anatomical names (Spanish) */
+export const TOOTH_NAMES: Record<number, string> = {
+  11: "Incisivo central sup. der.", 12: "Incisivo lateral sup. der.", 13: "Canino sup. der.",
+  14: "Primer premolar sup. der.", 15: "Segundo premolar sup. der.", 16: "Primer molar sup. der.",
+  17: "Segundo molar sup. der.", 18: "Tercer molar sup. der.",
+  21: "Incisivo central sup. izq.", 22: "Incisivo lateral sup. izq.", 23: "Canino sup. izq.",
+  24: "Primer premolar sup. izq.", 25: "Segundo premolar sup. izq.", 26: "Primer molar sup. izq.",
+  27: "Segundo molar sup. izq.", 28: "Tercer molar sup. izq.",
+  31: "Incisivo central inf. izq.", 32: "Incisivo lateral inf. izq.", 33: "Canino inf. izq.",
+  34: "Primer premolar inf. izq.", 35: "Segundo premolar inf. izq.", 36: "Primer molar inf. izq.",
+  37: "Segundo molar inf. izq.", 38: "Tercer molar inf. izq.",
+  41: "Incisivo central inf. der.", 42: "Incisivo lateral inf. der.", 43: "Canino inf. der.",
+  44: "Primer premolar inf. der.", 45: "Segundo premolar inf. der.", 46: "Primer molar inf. der.",
+  47: "Segundo molar inf. der.", 48: "Tercer molar inf. der.",
+};
+
+import type { ToothConditionType } from "./types";
+
+/** Condition visual config — color, label, render type */
+export const CONDITION_CONFIG: Record<ToothConditionType, { label: string; color: string; type: "fill" | "symbol" }> = {
+  caries:      { label: "Caries",        color: "#DC2626", type: "fill" },
+  obturacion:  { label: "Obturación",    color: "#2563EB", type: "fill" },
+  extraccion:  { label: "Extracción",    color: "#DC2626", type: "symbol" },
+  ausente:     { label: "Ausente",       color: "#9CA3AF", type: "symbol" },
+  corona:      { label: "Corona",        color: "#D97706", type: "symbol" },
+  endodoncia:  { label: "Endodoncia",    color: "#7C3AED", type: "symbol" },
+  fractura:    { label: "Fractura",      color: "#DC2626", type: "symbol" },
+  implante:    { label: "Implante",      color: "#16A34A", type: "symbol" },
+  protesis:    { label: "Prótesis",      color: "#D97706", type: "symbol" },
+  sellante:    { label: "Sellante",      color: "#8B5CF6", type: "fill" },
+};
+
+export const SURFACE_LABELS: Record<string, string> = {
+  oclusal: "Oclusal",
+  mesial: "Mesial",
+  distal: "Distal",
+  vestibular: "Vestibular",
+  lingual: "Lingual",
+  whole: "Completo",
+};
 
 /** Convert "HH:MM" (24h) to "h:mm AM/PM" (12h) */
 export function to12h(time: string | null | undefined): string {

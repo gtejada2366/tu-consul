@@ -107,7 +107,7 @@ export function DoctorDetail() {
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className="text-[1.5rem] md:text-[1.75rem] font-semibold text-foreground truncate">
-            Dr. {doctor.full_name}
+            {doctor.full_name.startsWith("Dr.") ? doctor.full_name : `Dr. ${doctor.full_name}`}
           </h1>
           <p className="text-[0.875rem] text-foreground-secondary mt-0.5">
             {doctor.specialty || "General"} {!doctor.is_active && <Badge variant="default" className="ml-2">Inactivo</Badge>}

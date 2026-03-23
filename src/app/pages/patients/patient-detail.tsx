@@ -9,7 +9,7 @@ import { Modal } from "../../components/ui/modal";
 import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, FileText, Trash2, AlertCircle,
   Plus, User, Heart, Stethoscope, Shield, Tag, X, MessageCircle, CreditCard,
-  Check, DollarSign
+  Check, DollarSign, ClipboardList
 } from "lucide-react";
 import { usePatient, usePatientMutations } from "../../hooks/use-patients";
 import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use-appointments";
@@ -28,12 +28,14 @@ import { ContactTab } from "./tabs/contact-tab";
 import { MedicalTab } from "./tabs/medical-tab";
 import { DentalTab } from "./tabs/dental-tab";
 import { InsuranceTab } from "./tabs/insurance-tab";
+import { OdontogramTab } from "./tabs/odontogram-tab";
 
 const TABS = [
   { id: "personal", label: "Datos Personales", icon: User },
   { id: "contact", label: "Contacto", icon: Phone },
   { id: "medical", label: "Antecedentes Médicos", icon: Heart },
   { id: "dental", label: "Antecedentes Odontológicos", icon: Stethoscope },
+  { id: "odontogram", label: "Odontograma", icon: ClipboardList },
   { id: "insurance", label: "Seguro", icon: Shield },
   { id: "appointments", label: "Citas", icon: Calendar },
   { id: "history", label: "Historia Clínica", icon: FileText },
@@ -338,6 +340,9 @@ export function PatientDetail() {
           )}
           {activeTab === "dental" && (
             <DentalTab patient={patient} onSave={handleSavePatient} onRefetch={refetchPatient} />
+          )}
+          {activeTab === "odontogram" && patient && (
+            <OdontogramTab patient={patient} />
           )}
           {activeTab === "insurance" && (
             <InsuranceTab patient={patient} onSave={handleSavePatient} onRefetch={refetchPatient} />

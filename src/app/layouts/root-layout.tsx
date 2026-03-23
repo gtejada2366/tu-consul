@@ -3,6 +3,7 @@ import { Outlet } from "react-router";
 import { Sidebar } from "../components/sidebar";
 import { TopBar } from "../components/topbar";
 import { AuthGuard } from "../components/auth-guard";
+import { OnboardingWizard } from "../components/onboarding-wizard";
 
 export function RootLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,6 +22,7 @@ export function RootLayout() {
           </main>
         </div>
       </div>
+      <OnboardingWizard />
     </AuthGuard>
   );
 }

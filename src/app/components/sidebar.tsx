@@ -8,6 +8,7 @@ import {
   MessageCircle,
   CreditCard,
   FileCheck,
+  BarChart3,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +25,7 @@ const navigation = [
   { name: "Campañas", href: "/campanas", icon: MessageCircle },
   { name: "Facturación", href: "/facturacion", icon: CreditCard },
   { name: "Comprobantes", href: "/comprobantes", icon: FileCheck },
+  { name: "Reportes", href: "/reportes", icon: BarChart3 },
   { name: "Configuración", href: "/configuracion", icon: Settings },
 ];
 
@@ -89,7 +91,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 py-6">
         <ul className="space-y-1 px-3">
-          {navigation.filter(item => (item.href !== "/facturacion" && item.href !== "/comprobantes") || user?.role === "admin").map((item) => {
+          {navigation.filter(item => (item.href !== "/facturacion" && item.href !== "/comprobantes" && item.href !== "/reportes") || user?.role === "admin").map((item) => {
             const isActive = location.pathname === item.href ||
               (item.href !== "/" && location.pathname.startsWith(item.href));
 

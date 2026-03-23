@@ -385,6 +385,78 @@ export interface ClinicSunatConfig {
   updated_at: string;
 }
 
+// ============================================================
+// Odontogram types
+// ============================================================
+
+export type ToothConditionType =
+  | "caries" | "obturacion" | "extraccion" | "ausente" | "corona"
+  | "endodoncia" | "fractura" | "implante" | "protesis" | "sellante";
+
+export type ToothSurface = "oclusal" | "mesial" | "distal" | "vestibular" | "lingual" | "whole";
+
+export interface ToothCondition {
+  id: string;
+  odontogram_record_id: string;
+  tooth_number: number;
+  surface: ToothSurface;
+  condition: ToothConditionType;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface OdontogramRecord {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  doctor_id: string;
+  consultation_id: string | null;
+  date: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OdontogramWithConditions extends OdontogramRecord {
+  tooth_conditions: ToothCondition[];
+  doctor?: { full_name: string };
+}
+
+export type ToothConditionsMap = Record<number, ToothCondition[]>;
+
+// ============================================================
+// Subscription / Payment types
+// ============================================================
+
+export interface SubscriptionTransaction {
+  id: string;
+  clinic_id: string;
+  mp_preference_id: string | null;
+  mp_payment_id: string | null;
+  plan: "basic" | "premium";
+  amount: number;
+  currency: string;
+  status: "pending" | "approved" | "rejected" | "refunded";
+  period_start: string | null;
+  period_end: string | null;
+  payer_email: string | null;
+  mp_status_detail: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubscriptionPlanConfig {
+  key: "free" | "basic" | "premium";
+  name: string;
+  price: number; // PEN / month
+  features: string[];
+  limits: {
+    patients: number;    // -1 = unlimited
+    users: number;
+    branches: number;
+  };
+}
+
 export interface ComprobanteElectronico {
   id: string;
   clinic_id: string;

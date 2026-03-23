@@ -89,7 +89,7 @@ export function Doctors() {
                       <div className="flex flex-col items-center text-center mb-4">
                         <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-2">
                           {doc.avatar_url ? (
-                            <img src={doc.avatar_url} alt={`Avatar de Dr. ${doc.full_name}`} className="w-14 h-14 rounded-full object-cover" />
+                            <img src={doc.avatar_url} alt={`Avatar de ${doc.full_name}`} className="w-14 h-14 rounded-full object-cover" />
                           ) : (
                             <span className="text-primary font-semibold text-[1.125rem]">
                               {doc.full_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
@@ -97,7 +97,7 @@ export function Doctors() {
                           )}
                         </div>
                         <p className="font-semibold text-foreground text-[0.9375rem]">
-                          Dr. {doc.full_name}
+                          {doc.full_name.startsWith("Dr.") ? doc.full_name : `Dr. ${doc.full_name}`}
                         </p>
                         <p className="text-[0.75rem] text-foreground-secondary">
                           {doc.specialty || "General"}
@@ -176,7 +176,7 @@ export function Doctors() {
                           </span>
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-foreground text-[0.875rem] truncate">Dr. {doc.full_name}</p>
+                          <p className="font-medium text-foreground text-[0.875rem] truncate">{doc.full_name.startsWith("Dr.") ? doc.full_name : `Dr. ${doc.full_name}`}</p>
                           <p className="text-[0.75rem] text-foreground-secondary">{doc.specialty || "General"}</p>
                         </div>
                         <Badge variant="default">Inactivo</Badge>

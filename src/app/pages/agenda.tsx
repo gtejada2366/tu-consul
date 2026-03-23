@@ -383,6 +383,15 @@ export function Agenda() {
                     <input type="text" placeholder="Buscar paciente o cita..." value={agendaSearch} onChange={e => setAgendaSearch(e.target.value)} className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
                   </div>
                 </div>
+                {agendaSearch.trim() && appointments.filter(a => {
+                  const q = agendaSearch.toLowerCase();
+                  return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+                }).length === 0 && (
+                  <div className="text-center py-8">
+                    <Search className="w-8 h-8 text-foreground-secondary mx-auto mb-2 opacity-50" />
+                    <p className="text-[0.875rem] text-foreground-secondary">No se encontraron citas con "{agendaSearch}"</p>
+                  </div>
+                )}
                 <div className="p-4 space-y-0">
                   {timeSlots.map((time) => {
                     const slotApts = appointments.filter(a => {
@@ -408,7 +417,7 @@ export function Agenda() {
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
                                   <p className="font-semibold text-foreground text-[0.875rem] truncate">{apt.patient?.full_name || "-"}</p>
-                                  <p className="text-[0.75rem] text-foreground-secondary mt-0.5">{apt.type} • Dr. {apt.doctor?.full_name || "-"}</p>
+                                  <p className="text-[0.75rem] text-foreground-secondary mt-0.5">{apt.type} • {apt.doctor?.full_name?.startsWith("Dr.") ? apt.doctor.full_name : `Dr. ${apt.doctor?.full_name || "-"}`}</p>
                                 </div>
                                 <Badge variant={STATUS_COLORS[apt.status]}>{STATUS_LABELS[apt.status]}</Badge>
                               </div>
@@ -433,6 +442,15 @@ export function Agenda() {
                     <input type="text" placeholder="Buscar paciente o cita..." value={agendaSearch} onChange={e => setAgendaSearch(e.target.value)} className="flex-1 bg-transparent text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none" />
                   </div>
                 </div>
+                {agendaSearch.trim() && weekAppointments.filter(a => {
+                  const q = agendaSearch.toLowerCase();
+                  return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
+                }).length === 0 && (
+                  <div className="text-center py-8">
+                    <Search className="w-8 h-8 text-foreground-secondary mx-auto mb-2 opacity-50" />
+                    <p className="text-[0.875rem] text-foreground-secondary">No se encontraron citas con "{agendaSearch}"</p>
+                  </div>
+                )}
                 {/* Header: hour col + 7 day columns */}
                 <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border sticky top-0 bg-surface z-10">
                   <div className="border-r border-border" />
@@ -661,7 +679,7 @@ export function Agenda() {
           <div className="space-y-4">
             <div className="p-3 bg-surface-alt rounded-[10px]">
               <p className="text-[0.875rem] font-semibold text-foreground">{completionApt.patient?.full_name}</p>
-              <p className="text-[0.75rem] text-foreground-secondary">{completionApt.type} • {to12h(completionApt.start_time)} • Dr. {completionApt.doctor?.full_name || "-"}</p>
+              <p className="text-[0.75rem] text-foreground-secondary">{completionApt.type} • {to12h(completionApt.start_time)} • {completionApt.doctor?.full_name?.startsWith("Dr.") ? completionApt.doctor.full_name : `Dr. ${completionApt.doctor?.full_name || "-"}`}</p>
             </div>
 
             <div className="space-y-3">

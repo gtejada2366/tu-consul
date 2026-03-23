@@ -23,6 +23,8 @@ import {
   FileCheck,
   Upload,
   Check,
+  Link2,
+  Copy,
 } from "lucide-react";
 import { useAuth } from "../contexts/auth-context";
 import { useClinicUsers, useClinicSchedules, useNotificationPreferences, useClinicMutations, useUserMutations, useClinicBranches, useClinicServices } from "../hooks/use-clinic";
@@ -30,6 +32,8 @@ import { supabase } from "../lib/supabase";
 import { inputClass, labelClass } from "../components/modals/form-classes";
 import type { ClinicBranch, ClinicService, ClinicSchedule, ClinicSunatConfig } from "../lib/types";
 import { sunatApi } from "../lib/sunat-api";
+import { paymentsApi } from "../lib/payments-api";
+import { SUBSCRIPTION_PLANS } from "../lib/constants";
 
 // Tabs for admin
 const adminTabs = [
@@ -422,6 +426,34 @@ export function Settings() {
                   </div>
                 </CardContent>
               </Card>
+              {/* Booking Link */}
+              <Card>
+                <CardHeader><CardTitle>Reserva Online</CardTitle></CardHeader>
+                <CardContent>
+                  <p className="text-[0.8125rem] text-foreground-secondary mb-3">
+                    Comparte este link con tus pacientes para que reserven citas desde su celular.
+                    Ponlo en tu Instagram, Facebook o Google.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-surface-alt border border-border rounded-[10px]">
+                      <Link2 className="w-4 h-4 text-primary shrink-0" />
+                      <span className="text-[0.8125rem] text-foreground truncate">
+                        {`${window.location.origin}/reservar/${clinic?.id}`}
+                      </span>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/reservar/${clinic?.id}`);
+                        toast.success("Link copiado al portapapeles");
+                      }}
+                    >
+                      <Copy className="w-4 h-4 mr-1" />Copiar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </>
           )}
 
@@ -731,54 +763,9 @@ export function Settings() {
             </Card>
           )}
 
-          {/* ===== BILLING TAB (admin) ===== */}
+          {/* ===== BILLING / SUBSCRIPTION TAB (admin) ===== */}
           {activeTab === "billing" && isAdmin && (
-            <>
-              <Card>
-                <CardHeader><CardTitle>Plan Actual</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="p-6 bg-gradient-to-r from-primary/10 to-primary/5 rounded-[12px] border border-primary/20">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-[1.375rem] font-semibold text-foreground mb-1">
-                          {clinic?.plan === "premium" ? "Plan Premium" : clinic?.plan === "basic" ? "Plan Básico" : "Plan Gratuito"}
-                        </h3>
-                        <p className="text-[0.875rem] text-foreground-secondary">Acceso completo a todas las funcionalidades</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[1.75rem] font-semibold text-primary">
-                          {clinic?.plan === "premium" ? "S/99" : clinic?.plan === "basic" ? "S/49" : "S/0"}
-                        </p>
-                        <p className="text-[0.75rem] text-foreground-secondary">por mes</p>
-                      </div>
-                    </div>
-                    <div className="space-y-2 mb-4">
-                      {["Usuarios ilimitados", "Pacientes ilimitados", "Agenda avanzada", "Reportes y analytics", "Soporte prioritario"].map((feature, index) => (
-                        <div key={index} className="flex items-center gap-2 text-[0.875rem] text-foreground">
-                          <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                          <span>{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {clinic?.plan_expires_at && (
-                      <p className="text-[0.75rem] text-foreground-secondary">
-                        Próximo cobro: {new Date(clinic.plan_expires_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle>Métodos de Pago</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <CreditCard className="w-12 h-12 text-foreground-secondary mx-auto mb-4 opacity-50" />
-                    <p className="text-[0.875rem] text-foreground-secondary mb-1">No hay métodos de pago configurados</p>
-                    <p className="text-[0.75rem] text-foreground-secondary mb-4">Los cobros se registran manualmente desde Facturación</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
+            <SubscriptionTab clinic={clinic} refreshUser={refreshUser} />
           )}
 
           {/* ===== SUNAT TAB (admin) ===== */}
@@ -1062,5 +1049,224 @@ export function Settings() {
         </form>
       </Modal>
     </div>
+  );
+}
+
+// ============================================================
+// Subscription Tab Component
+// ============================================================
+
+function SubscriptionTab({ clinic, refreshUser }: { clinic: import("../lib/types").Clinic | null; refreshUser: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [transactions, setTransactions] = useState<import("../lib/types").SubscriptionTransaction[]>([]);
+  const [txLoading, setTxLoading] = useState(true);
+  const currentPlan = clinic?.plan || "free";
+
+  // Load transaction history
+  useState(() => {
+    if (!clinic?.id) return;
+    supabase
+      .from("subscription_transactions")
+      .select("*")
+      .eq("clinic_id", clinic.id)
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        setTransactions((data || []) as import("../lib/types").SubscriptionTransaction[]);
+        setTxLoading(false);
+      });
+  });
+
+  async function handleSubscribe(plan: "basic" | "premium") {
+    setLoading(true);
+    try {
+      const result = await paymentsApi.createPreference(plan);
+      // Redirect to Mercado Pago checkout
+      window.location.href = result.init_point;
+    } catch (e: any) {
+      toast.error(e.message || "Error al crear el pago");
+      setLoading(false);
+    }
+  }
+
+  // Check for payment callback in URL
+  useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get("payment");
+    const txId = params.get("tx");
+    if (paymentStatus && txId) {
+      if (paymentStatus === "success") {
+        toast.success("Pago procesado exitosamente. Tu plan se actualizará en breves momentos.");
+        refreshUser();
+      } else if (paymentStatus === "failure") {
+        toast.error("El pago fue rechazado. Intenta nuevamente.");
+      } else if (paymentStatus === "pending") {
+        toast("Tu pago está pendiente de confirmación.");
+      }
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  });
+
+  const planOrder = { free: 0, basic: 1, premium: 2 };
+
+  return (
+    <>
+      {/* Current Plan Banner */}
+      <Card>
+        <CardHeader><CardTitle>Tu Suscripción</CardTitle></CardHeader>
+        <CardContent>
+          <div className="p-5 bg-gradient-to-r from-primary/10 to-primary/5 rounded-[12px] border border-primary/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="text-[1.25rem] font-semibold text-foreground">
+                    Plan {currentPlan === "premium" ? "Premium" : currentPlan === "basic" ? "Básico" : "Gratuito"}
+                  </h3>
+                  <Badge variant={currentPlan === "free" ? "default" : "success"}>
+                    {currentPlan === "free" ? "Activo" : "Suscrito"}
+                  </Badge>
+                </div>
+                {clinic?.plan_expires_at && (
+                  <p className="text-[0.8125rem] text-foreground-secondary">
+                    Vigente hasta: {new Date(clinic.plan_expires_at).toLocaleDateString("es-PE", { day: "numeric", month: "long", year: "numeric" })}
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-[1.75rem] font-bold text-primary">
+                  S/{SUBSCRIPTION_PLANS.find(p => p.key === currentPlan)?.price || 0}
+                </p>
+                <p className="text-[0.75rem] text-foreground-secondary">/mes</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Plans Comparison */}
+      <Card>
+        <CardHeader><CardTitle>Planes Disponibles</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {SUBSCRIPTION_PLANS.map((plan) => {
+              const isCurrent = plan.key === currentPlan;
+              const isUpgrade = planOrder[plan.key] > planOrder[currentPlan];
+              const isDowngrade = planOrder[plan.key] < planOrder[currentPlan];
+
+              return (
+                <div
+                  key={plan.key}
+                  className={`relative rounded-[12px] border-2 p-5 transition-all ${
+                    isCurrent
+                      ? "border-primary bg-primary/5"
+                      : plan.key === "premium"
+                      ? "border-amber-300 bg-amber-50/50 hover:border-amber-400"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  {plan.key === "premium" && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="bg-amber-500 text-white text-[0.6875rem] font-semibold px-3 py-0.5 rounded-full">
+                        Recomendado
+                      </span>
+                    </div>
+                  )}
+
+                  <h4 className="text-[1.125rem] font-semibold text-foreground mb-1">{plan.name}</h4>
+                  <div className="mb-4">
+                    <span className="text-[1.75rem] font-bold text-foreground">S/{plan.price}</span>
+                    <span className="text-[0.8125rem] text-foreground-secondary">/mes</span>
+                  </div>
+
+                  <ul className="space-y-2 mb-5">
+                    {plan.features.map((f, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[0.8125rem] text-foreground">
+                        <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {isCurrent ? (
+                    <Button variant="tertiary" size="md" className="w-full" disabled>
+                      Plan Actual
+                    </Button>
+                  ) : isUpgrade ? (
+                    <Button
+                      variant={plan.key === "premium" ? "primary" : "secondary"}
+                      size="md"
+                      className="w-full"
+                      onClick={() => handleSubscribe(plan.key as "basic" | "premium")}
+                      disabled={loading}
+                    >
+                      {loading ? "Procesando..." : `Upgrade a ${plan.name}`}
+                    </Button>
+                  ) : isDowngrade ? (
+                    <Button variant="tertiary" size="md" className="w-full" disabled>
+                      Contactar soporte
+                    </Button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <Shield className="w-4 h-4 text-blue-600 shrink-0" />
+            <p className="text-[0.8125rem] text-blue-800">
+              Pagos seguros con Mercado Pago. Puedes cancelar en cualquier momento.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Transaction History */}
+      <Card>
+        <CardHeader><CardTitle>Historial de Pagos</CardTitle></CardHeader>
+        <CardContent>
+          {txLoading ? (
+            <Loading />
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-8">
+              <CreditCard className="w-10 h-10 text-foreground-secondary mx-auto mb-3 opacity-50" />
+              <p className="text-[0.875rem] text-foreground-secondary">Sin transacciones aún</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {transactions.map((tx) => (
+                <div key={tx.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-[0.875rem] font-medium text-foreground">
+                      Plan {tx.plan === "premium" ? "Premium" : "Básico"}
+                    </p>
+                    <p className="text-[0.75rem] text-foreground-secondary">
+                      {new Date(tx.created_at).toLocaleDateString("es-PE", { day: "numeric", month: "short", year: "numeric" })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[0.875rem] font-medium text-foreground">
+                      S/{Number(tx.amount).toFixed(2)}
+                    </span>
+                    <Badge
+                      variant={
+                        tx.status === "approved" ? "success" :
+                        tx.status === "rejected" ? "danger" :
+                        "warning"
+                      }
+                    >
+                      {tx.status === "approved" ? "Aprobado" :
+                       tx.status === "rejected" ? "Rechazado" :
+                       tx.status === "refunded" ? "Reembolsado" :
+                       "Pendiente"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }
