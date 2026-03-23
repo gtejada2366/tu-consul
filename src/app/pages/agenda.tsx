@@ -9,7 +9,7 @@ import { Modal } from "../components/ui/modal";
 import {
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Search,
   Calendar as CalendarIcon, Clock, User, X, FileText, AlertCircle,
-  TrendingUp, Users, DollarSign
+  TrendingUp, Users, DollarSign, Banknote
 } from "lucide-react";
 import { useAppointments, useWeekAppointments, useAppointmentMutations } from "../hooks/use-appointments";
 import { useDashboard } from "../hooks/use-dashboard";
@@ -17,7 +17,7 @@ import { usePatients } from "../hooks/use-patients";
 import { useClinicUsers, useClinicSchedules, useClinicServices } from "../hooks/use-clinic";
 import { useAuth } from "../contexts/auth-context";
 import { supabase } from "../lib/supabase";
-import type { AppointmentWithRelations, ClinicService } from "../lib/types";
+import type { AppointmentWithRelations, ClinicService, PotentialTreatment, TreatmentPayment } from "../lib/types";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
 import { SearchableSelect } from "../components/ui/searchable-select";
 import { APPOINTMENT_TYPES, DURATION_OPTIONS, STATUS_COLORS, STATUS_LABELS, generateTimeSlots, getTypeColor, TYPE_COLORS, toLocalDateStr, to12h } from "../lib/constants";
@@ -92,6 +92,18 @@ export function Agenda() {
   const [completionApt, setCompletionApt] = useState<AppointmentWithRelations | null>(null);
   const [completionLines, setCompletionLines] = useState<CompletionServiceLine[]>([]);
   const [completionSaving, setCompletionSaving] = useState(false);
+
+  // Completion payment state
+  const [completionTreatments, setCompletionTreatments] = useState<(PotentialTreatment & { paid: number })[]>([]);
+  const [completionPayments, setCompletionPayments] = useState<{ treatment_id: string; amount: string; payment_method: string }[]>([]);
+
+  const PAYMENT_METHODS = [
+    { value: "cash", label: "Efectivo" },
+    { value: "card", label: "Tarjeta" },
+    { value: "transfer", label: "Transferencia" },
+    { value: "yape", label: "Yape" },
+    { value: "plin", label: "Plin" },
+  ];
 
   // Drag & Drop state
   const [draggedAptId, setDraggedAptId] = useState<string | null>(null);
@@ -251,10 +263,37 @@ export function Agenda() {
     else { toast.success("Cita actualizada"); setShowEditModal(false); setSelectedAppointment(null); refetch(); refetchWeek(); }
   }
 
-  function openCompletionModal(apt: AppointmentWithRelations) {
+  async function openCompletionModal(apt: AppointmentWithRelations) {
     setCompletionApt(apt);
     setCompletionLines([{ service_id: null, service_name: "", price: 0, quantity: 1 }]);
+    setCompletionPayments([]);
     setShowCompletionModal(true);
+
+    // Fetch patient's pending treatments and their payments
+    if (clinic) {
+      const [treatRes, payRes] = await Promise.all([
+        supabase.from("potential_treatments").select("*")
+          .eq("patient_id", apt.patient_id).eq("clinic_id", clinic.id)
+          .in("status", ["pending", "completed"]).order("created_at", { ascending: false }),
+        supabase.from("treatment_payments").select("*")
+          .eq("clinic_id", clinic.id),
+      ]);
+
+      const payments = (payRes.data || []) as unknown as TreatmentPayment[];
+      const paidMap: Record<string, number> = {};
+      for (const p of payments) {
+        paidMap[p.treatment_id] = (paidMap[p.treatment_id] || 0) + Number(p.amount);
+      }
+
+      const treatments = ((treatRes.data || []) as unknown as PotentialTreatment[])
+        .map(t => ({ ...t, paid: paidMap[t.id] || 0 }))
+        .filter(t => {
+          const total = Number(t.estimated_amount) * (t.quantity || 1);
+          return t.paid < total - 0.01; // Only show treatments with remaining balance
+        });
+
+      setCompletionTreatments(treatments);
+    }
   }
 
   function addCompletionLine() {
@@ -284,6 +323,22 @@ export function Agenda() {
     const validLines = completionLines.filter(l => l.service_name.trim());
     if (validLines.length === 0) { toast.error("Agrega al menos un servicio realizado"); return; }
 
+    // Validate payments
+    const validPayments = completionPayments.filter(p => {
+      const amt = parseFloat(p.amount);
+      return p.treatment_id && !isNaN(amt) && amt > 0;
+    });
+    for (const p of validPayments) {
+      const t = completionTreatments.find(t => t.id === p.treatment_id);
+      if (t) {
+        const remaining = Number(t.estimated_amount) * (t.quantity || 1) - t.paid;
+        if (parseFloat(p.amount) > remaining + 0.01) {
+          toast.error(`El cobro de "${t.service}" excede el saldo pendiente (S/${remaining.toFixed(2)})`);
+          return;
+        }
+      }
+    }
+
     setCompletionSaving(true);
 
     // 1. Mark appointment as completed
@@ -304,8 +359,27 @@ export function Agenda() {
 
     if (svcError) { toast.error("Cita completada pero hubo un error al guardar los servicios"); }
 
+    // 3. Insert treatment payments
+    if (validPayments.length > 0) {
+      const { error: payError } = await supabase
+        .from("treatment_payments")
+        .insert(validPayments.map(p => ({
+          clinic_id: clinic.id,
+          treatment_id: p.treatment_id,
+          amount: parseFloat(p.amount),
+          payment_method: p.payment_method,
+          notes: `Cobro en cita ${completionApt.date} - ${completionApt.type}`,
+        })) as Record<string, unknown>[]);
+
+      if (payError) { toast.error("Cita completada pero hubo un error al registrar los cobros"); }
+    }
+
     setCompletionSaving(false);
-    toast.success("Cita completada con servicios registrados");
+    const paymentTotal = validPayments.reduce((s, p) => s + parseFloat(p.amount), 0);
+    toast.success(paymentTotal > 0
+      ? `Cita completada · Cobro registrado: S/${paymentTotal.toFixed(2)}`
+      : "Cita completada con servicios registrados"
+    );
     setShowCompletionModal(false);
     setCompletionApt(null);
     setSelectedAppointment(null);
@@ -868,8 +942,105 @@ export function Agenda() {
 
             {/* Total */}
             <div className="flex items-center justify-between p-4 bg-primary/5 rounded-[10px] border border-primary/20">
-              <span className="text-[0.875rem] font-semibold text-foreground">Total</span>
+              <span className="text-[0.875rem] font-semibold text-foreground">Total Servicios</span>
               <span className="text-[1.25rem] font-bold text-primary">S/{completionTotal.toFixed(2)}</span>
+            </div>
+
+            {/* Payment section */}
+            <div className="space-y-3 pt-3 border-t border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-success" />
+                  <p className="text-[0.875rem] font-semibold text-foreground">Registrar Cobro</p>
+                </div>
+                {completionTreatments.length > 0 && completionPayments.length === 0 && (
+                  <Button variant="tertiary" size="sm" onClick={() => setCompletionPayments([{ treatment_id: "", amount: "", payment_method: "cash" }])}>
+                    <Plus className="w-4 h-4 mr-1" />Agregar Cobro
+                  </Button>
+                )}
+              </div>
+
+              {completionTreatments.length === 0 ? (
+                <p className="text-[0.75rem] text-foreground-secondary py-2">Este paciente no tiene tratamientos pendientes de pago.</p>
+              ) : (
+                <>
+                  {completionPayments.length === 0 ? (
+                    <p className="text-[0.75rem] text-foreground-secondary">
+                      {completionTreatments.length} tratamiento{completionTreatments.length > 1 ? "s" : ""} con saldo pendiente. Agrega un cobro si el paciente va a pagar en esta cita.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {completionPayments.map((cp, idx) => {
+                        const selectedT = completionTreatments.find(t => t.id === cp.treatment_id);
+                        const remaining = selectedT ? Number(selectedT.estimated_amount) * (selectedT.quantity || 1) - selectedT.paid : 0;
+                        return (
+                          <div key={idx} className="p-3 bg-success/5 border border-success/20 rounded-[10px] space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <select className={inputClass} value={cp.treatment_id}
+                                  onChange={e => {
+                                    const t = completionTreatments.find(t => t.id === e.target.value);
+                                    const rem = t ? Number(t.estimated_amount) * (t.quantity || 1) - t.paid : 0;
+                                    setCompletionPayments(prev => prev.map((p, i) => i === idx ? { ...p, treatment_id: e.target.value, amount: rem > 0 ? rem.toFixed(2) : "" } : p));
+                                  }}>
+                                  <option value="">Seleccionar tratamiento...</option>
+                                  {completionTreatments.map(t => {
+                                    const total = Number(t.estimated_amount) * (t.quantity || 1);
+                                    const rem = total - t.paid;
+                                    return (
+                                      <option key={t.id} value={t.id}>
+                                        {t.service} — Saldo: S/{rem.toFixed(2)} de S/{total.toFixed(2)}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+                              {completionPayments.length > 1 && (
+                                <button type="button" onClick={() => setCompletionPayments(prev => prev.filter((_, i) => i !== idx))}
+                                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-danger/10 text-foreground-secondary hover:text-danger transition-colors">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                            {selectedT && (
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-[0.6875rem] font-medium text-foreground-secondary">Monto a cobrar (S/)</label>
+                                  <input type="number" step="0.01" min="0.01" max={remaining} className={inputClass}
+                                    placeholder={remaining.toFixed(2)} value={cp.amount}
+                                    onChange={e => setCompletionPayments(prev => prev.map((p, i) => i === idx ? { ...p, amount: e.target.value } : p))} />
+                                </div>
+                                <div>
+                                  <label className="text-[0.6875rem] font-medium text-foreground-secondary">Método de pago</label>
+                                  <select className={inputClass} value={cp.payment_method}
+                                    onChange={e => setCompletionPayments(prev => prev.map((p, i) => i === idx ? { ...p, payment_method: e.target.value } : p))}>
+                                    {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      <Button variant="tertiary" size="sm" onClick={() => setCompletionPayments(prev => [...prev, { treatment_id: "", amount: "", payment_method: "cash" }])}>
+                        <Plus className="w-4 h-4 mr-1" />Otro cobro
+                      </Button>
+
+                      {/* Payment total */}
+                      {(() => {
+                        const payTotal = completionPayments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                        return payTotal > 0 ? (
+                          <div className="flex items-center justify-between p-3 bg-success/5 rounded-[10px] border border-success/20">
+                            <span className="text-[0.8125rem] font-semibold text-foreground">Total a Cobrar</span>
+                            <span className="text-[1rem] font-bold text-success">S/{payTotal.toFixed(2)}</span>
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-border">
