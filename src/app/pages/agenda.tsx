@@ -7,7 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { Loading } from "../components/ui/loading";
 import { Modal } from "../components/ui/modal";
 import {
-  ChevronLeft, ChevronRight, Plus, Search,
+  ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Search,
   Calendar as CalendarIcon, Clock, User, X, FileText,
   TrendingUp, Users, DollarSign
 } from "lucide-react";
@@ -71,6 +71,7 @@ export function Agenda() {
   });
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | null>(null);
   const [view, setView] = useState<"day" | "week">("day");
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -282,62 +283,73 @@ export function Agenda() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-[1.5rem] md:text-[1.75rem] font-semibold text-foreground">Agenda</h1>
-          <p className="text-[0.875rem] text-foreground-secondary mt-1">Gestiona tus citas y horarios</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-[1.5rem] md:text-[1.75rem] font-semibold text-foreground">Agenda</h1>
+            {!headerCollapsed && <p className="text-[0.875rem] text-foreground-secondary mt-1">Gestiona tus citas y horarios</p>}
+          </div>
+          <button
+            onClick={() => setHeaderCollapsed(prev => !prev)}
+            className="p-1.5 rounded-lg hover:bg-surface-alt text-foreground-secondary hover:text-foreground transition-colors"
+            title={headerCollapsed ? "Mostrar resumen" : "Ocultar resumen"}
+          >
+            {headerCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          </button>
         </div>
         <Button variant="primary" size="md" onClick={() => openCreateModal()}><Plus className="w-4 h-4 mr-2" />Nueva Cita</Button>
       </div>
 
-      {/* KPI Cards */}
-      <div className={`grid grid-cols-2 ${canSeeRevenue ? "md:grid-cols-4" : "md:grid-cols-3"} gap-3`}>
-        <Card>
-          <div className="p-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Citas Hoy</p>
-              <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.appointments_today}</p>
-            </div>
-            <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <CalendarIcon className="w-5 h-5 text-primary" />
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <div className="p-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">% Atendidos</p>
-              <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.occupancy_pct}%</p>
-            </div>
-            <div className="w-10 h-10 rounded-[10px] bg-success/10 flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-5 h-5 text-success" />
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <div className="p-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Atendidos</p>
-              <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.patients_attended}</p>
-            </div>
-            <div className="w-10 h-10 rounded-[10px] bg-warning/10 flex items-center justify-center flex-shrink-0">
-              <Users className="w-5 h-5 text-warning" />
-            </div>
-          </div>
-        </Card>
-        {canSeeRevenue && (
+      {/* KPI Cards — collapsible */}
+      {!headerCollapsed && (
+        <div className={`grid grid-cols-2 ${canSeeRevenue ? "md:grid-cols-4" : "md:grid-cols-3"} gap-3`}>
           <Card>
             <div className="p-4 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Ingresos Hoy</p>
-                <p className="text-[1.5rem] font-semibold text-foreground leading-none">S/{stats.revenue_today.toLocaleString()}</p>
+                <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Citas Hoy</p>
+                <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.appointments_today}</p>
               </div>
               <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="w-5 h-5 text-primary" />
+                <CalendarIcon className="w-5 h-5 text-primary" />
               </div>
             </div>
           </Card>
-        )}
-      </div>
+          <Card>
+            <div className="p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">% Atendidos</p>
+                <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.occupancy_pct}%</p>
+              </div>
+              <div className="w-10 h-10 rounded-[10px] bg-success/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-5 h-5 text-success" />
+              </div>
+            </div>
+          </Card>
+          <Card>
+            <div className="p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Atendidos</p>
+                <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.patients_attended}</p>
+              </div>
+              <div className="w-10 h-10 rounded-[10px] bg-warning/10 flex items-center justify-center flex-shrink-0">
+                <Users className="w-5 h-5 text-warning" />
+              </div>
+            </div>
+          </Card>
+          {canSeeRevenue && (
+            <Card>
+              <div className="p-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Ingresos Hoy</p>
+                  <p className="text-[1.5rem] font-semibold text-foreground leading-none">S/{stats.revenue_today.toLocaleString()}</p>
+                </div>
+                <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
 
       <Card><CardContent className="p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -359,18 +371,20 @@ export function Agenda() {
         </div>
       </CardContent></Card>
 
-      {/* Type legend */}
-      <div className="flex items-center gap-3 flex-wrap px-1">
-        {APPOINTMENT_TYPES.map(t => {
-          const tc = getTypeColor(t);
-          return (
-            <div key={t} className="flex items-center gap-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${tc.dot} flex-shrink-0`} />
-              <span className="text-[0.6875rem] text-foreground-secondary">{t}</span>
-            </div>
-          );
-        })}
-      </div>
+      {/* Type legend — collapsible */}
+      {!headerCollapsed && (
+        <div className="flex items-center gap-3 flex-wrap px-1">
+          {APPOINTMENT_TYPES.map(t => {
+            const tc = getTypeColor(t);
+            return (
+              <div key={t} className="flex items-center gap-1.5">
+                <span className={`w-2.5 h-2.5 rounded-full ${tc.dot} flex-shrink-0`} />
+                <span className="text-[0.6875rem] text-foreground-secondary">{t}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div>
         <Card><CardContent className="p-0">
