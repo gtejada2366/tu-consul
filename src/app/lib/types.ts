@@ -270,6 +270,7 @@ export interface Invoice {
   invoice_number: string;
   date: string;
   amount: number;
+  amount_paid: number;
   service: string;
   payment_method: string | null;
   status: "paid" | "pending" | "overdue";

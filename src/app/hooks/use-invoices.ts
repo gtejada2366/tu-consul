@@ -32,12 +32,11 @@ export function useInvoices() {
   }, [fetchInvoices]);
 
   const totalRevenue = invoices
-    .filter((i) => i.status === "paid")
-    .reduce((sum, i) => sum + i.amount, 0);
+    .reduce((sum, i) => sum + (i.amount_paid || 0), 0);
 
   const pendingRevenue = invoices
     .filter((i) => i.status === "pending" || i.status === "overdue")
-    .reduce((sum, i) => sum + i.amount, 0);
+    .reduce((sum, i) => sum + (i.amount - (i.amount_paid || 0)), 0);
 
   const collectionRate = invoices.length > 0
     ? Math.round((invoices.filter((i) => i.status === "paid").length / invoices.length) * 100)
@@ -91,5 +90,36 @@ export function useInvoiceMutations() {
     return { error: error?.message || null };
   }
 
-  return { createInvoice, markAsPaid };
+  async function registerPayment(id: string, amountPaid: number, paymentMethod: string) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    // Get current invoice
+    const { data: invoice } = await supabase
+      .from("invoices")
+      .select("amount, amount_paid")
+      .eq("id", id)
+      .eq("clinic_id", clinic.id)
+      .single();
+
+    if (!invoice) return { error: "Factura no encontrada" };
+
+    const newPaid = (Number(invoice.amount_paid) || 0) + amountPaid;
+    const isFullyPaid = newPaid >= Number(invoice.amount) - 0.01;
+
+    const { error } = await supabase
+      .from("invoices")
+      .update({
+        amount_paid: newPaid,
+        status: isFullyPaid ? "paid" : "pending",
+        payment_method: paymentMethod,
+        paid_at: isFullyPaid ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      } as Record<string, unknown>)
+      .eq("id", id)
+      .eq("clinic_id", clinic.id);
+
+    return { error: error?.message || null };
+  }
+
+  return { createInvoice, markAsPaid, registerPayment };
 }

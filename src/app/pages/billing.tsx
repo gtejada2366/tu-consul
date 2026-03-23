@@ -20,7 +20,7 @@ const statusConfig = {
 
 export function Billing() {
   const { invoices, loading, totalRevenue, pendingRevenue, collectionRate, refetch } = useInvoices();
-  const { createInvoice, markAsPaid } = useInvoiceMutations();
+  const { createInvoice, registerPayment } = useInvoiceMutations();
   const { patients } = usePatients();
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending" | "overdue">("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -29,6 +29,9 @@ export function Billing() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [payingInvoiceId, setPayingInvoiceId] = useState("");
   const [payingPatientName, setPayingPatientName] = useState("");
+  const [payingAmount, setPayingAmount] = useState("");
+  const [payingTotal, setPayingTotal] = useState(0);
+  const [payingPaid, setPayingPaid] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("Efectivo");
   const [saving, setSaving] = useState(false);
   const [invoiceForm, setInvoiceForm] = useState({ patient_id: "", amount: "", service: "", notes: "" });
@@ -62,18 +65,26 @@ export function Billing() {
     else { toast.success("Cobro registrado"); setShowCreateModal(false); setInvoiceForm({ patient_id: "", amount: "", service: "", notes: "" }); refetch(); }
   }
 
-  async function handleMarkAsPaid() {
+  async function handleRegisterPayment() {
     if (!payingInvoiceId) return;
+    const amt = parseFloat(payingAmount);
+    if (isNaN(amt) || amt <= 0) { toast.error("Ingresa un monto válido"); return; }
+    const remaining = payingTotal - payingPaid;
+    if (amt > remaining + 0.01) { toast.error(`El monto excede el saldo pendiente (S/${remaining.toFixed(2)})`); return; }
     setSaving(true);
-    const { error } = await markAsPaid(payingInvoiceId, paymentMethod);
+    const { error } = await registerPayment(payingInvoiceId, amt, paymentMethod);
     setSaving(false);
     if (error) { toast.error(error); }
-    else { toast.success("Pago registrado"); setShowPayModal(false); refetch(); }
+    else { toast.success(`Pago de S/${amt.toFixed(2)} registrado`); setShowPayModal(false); refetch(); }
   }
 
-  function openPayModal(invoiceId: string, patientName: string) {
+  function openPayModal(invoiceId: string, patientName: string, total: number, paid: number) {
     setPayingInvoiceId(invoiceId);
     setPayingPatientName(patientName);
+    setPayingTotal(total);
+    setPayingPaid(paid);
+    const remaining = total - paid;
+    setPayingAmount(remaining.toFixed(2));
     setPaymentMethod("Efectivo");
     setShowPayModal(true);
   }
@@ -190,13 +201,28 @@ export function Billing() {
                       <td className="px-6 py-4"><p className="text-[0.875rem] text-foreground">{patientName}</p></td>
                       <td className="px-6 py-4"><p className="text-[0.875rem] text-foreground-secondary">{bill.service}</p></td>
                       <td className="px-6 py-4"><div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-foreground-secondary" /><span className="text-[0.875rem] text-foreground">{(() => { const [y,m,d] = bill.date.split("-"); const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]; return `${d} ${months[parseInt(m)-1]} ${y}`; })()}</span></div></td>
-                      <td className="px-6 py-4"><p className="font-semibold text-foreground text-[0.875rem]">S/{bill.amount.toLocaleString()}</p></td>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-foreground text-[0.875rem]">S/{bill.amount.toLocaleString()}</p>
+                        {bill.status !== "paid" && (bill.amount_paid || 0) > 0 && (
+                          <div className="mt-1">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 h-1.5 bg-border/50 rounded-full overflow-hidden">
+                                <div className="h-full bg-success rounded-full" style={{ width: `${Math.min(100, ((bill.amount_paid || 0) / bill.amount) * 100)}%` }} />
+                              </div>
+                              <span className="text-[0.625rem] text-foreground-secondary">{Math.round(((bill.amount_paid || 0) / bill.amount) * 100)}%</span>
+                            </div>
+                            <p className="text-[0.6875rem] text-foreground-secondary mt-0.5">
+                              Pagado: S/{(bill.amount_paid || 0).toLocaleString()} · Saldo: S/{(bill.amount - (bill.amount_paid || 0)).toLocaleString()}
+                            </p>
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4"><p className="text-[0.875rem] text-foreground-secondary">{bill.payment_method || "-"}</p></td>
                       <td className="px-6 py-4">{statusInfo && <Badge variant={statusInfo.variant}><StatusIcon className="w-3 h-3 mr-1" />{statusInfo.label}</Badge>}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           {bill.status !== "paid" && (
-                            <Button variant="primary" size="sm" onClick={() => openPayModal(bill.id, patientName)}>Cobrar</Button>
+                            <Button variant="primary" size="sm" onClick={() => openPayModal(bill.id, patientName, bill.amount, bill.amount_paid || 0)}>Cobrar</Button>
                           )}
                         </div>
                       </td>
@@ -260,19 +286,35 @@ export function Billing() {
         </form>
       </Modal>
 
-      {/* Mark as Paid Modal */}
-      <Modal open={showPayModal} onClose={() => setShowPayModal(false)} title="Registrar Pago" size="sm">
+      {/* Register Payment Modal */}
+      <Modal open={showPayModal} onClose={() => setShowPayModal(false)} title="Registrar Cobro" size="md">
         <div className="space-y-4">
-          <p className="text-[0.875rem] text-foreground-secondary">Registrar pago de <strong className="text-foreground">{payingPatientName}</strong></p>
-          <div>
-            <label className={labelClass}>Método de Pago</label>
-            <select className={inputClass} value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-              {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
+          <div className="p-3 bg-surface-alt rounded-[10px]">
+            <p className="text-[0.875rem] font-medium text-foreground">{payingPatientName}</p>
+            <div className="flex items-center gap-4 mt-1 text-[0.75rem] text-foreground-secondary">
+              <span>Total: <strong className="text-primary">S/{payingTotal.toFixed(2)}</strong></span>
+              <span>Pagado: <strong className="text-success">S/{payingPaid.toFixed(2)}</strong></span>
+              <span>Saldo: <strong className="text-warning">S/{(payingTotal - payingPaid).toFixed(2)}</strong></span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Monto a cobrar (S/) *</label>
+              <input type="number" step="0.01" min="0.01" max={payingTotal - payingPaid} className={inputClass}
+                placeholder={(payingTotal - payingPaid).toFixed(2)}
+                value={payingAmount}
+                onChange={e => setPayingAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass}>Método de Pago</label>
+              <select className={inputClass} value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="tertiary" size="md" onClick={() => setShowPayModal(false)}>Cancelar</Button>
-            <Button variant="primary" size="md" onClick={handleMarkAsPaid} disabled={saving}>{saving ? "Procesando..." : "Confirmar Pago"}</Button>
+            <Button variant="primary" size="md" onClick={handleRegisterPayment} disabled={saving}>{saving ? "Procesando..." : "Registrar Cobro"}</Button>
           </div>
         </div>
       </Modal>
