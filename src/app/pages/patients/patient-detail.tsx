@@ -241,6 +241,14 @@ export function PatientDetail() {
       setShowAddPotentialModal(false);
       setPotentialForm({ service: "", estimated_amount: "", quantity: "1", notes: "" });
       fetchPotentialTreatments();
+
+      // Auto-add service as interest tag
+      const serviceName = potentialForm.service.trim();
+      const currentTags = patient?.interest_tags ?? [];
+      if (serviceName && !currentTags.includes(serviceName)) {
+        await updatePatient(id, { interest_tags: [...currentTags, serviceName] });
+        refetchPatient();
+      }
     }
   }
 
