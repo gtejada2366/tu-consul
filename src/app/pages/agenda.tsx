@@ -375,11 +375,42 @@ export function Agenda() {
       if (payError) { toast.error("Cita completada pero hubo un error al registrar los cobros"); }
     }
 
-    setCompletionSaving(false);
+    // 4. Create invoice for billing page
     const paymentTotal = validPayments.reduce((s, p) => s + parseFloat(p.amount), 0);
+    const invoiceTotal = validLines.length > 0
+      ? validLines.reduce((s, l) => s + l.price * l.quantity, 0)
+      : paymentTotal;
+
+    if (invoiceTotal > 0) {
+      const serviceSummary = validLines.length > 0
+        ? validLines.map(l => l.service_name).join(", ")
+        : validPayments.map(p => {
+            const t = completionTreatments.find(t => t.id === p.treatment_id);
+            return t?.service || "Cobro";
+          }).join(", ");
+
+      const payMethod = validPayments.length > 0 ? validPayments[0].payment_method : null;
+      const isPaid = paymentTotal >= invoiceTotal;
+
+      await supabase.from("invoices").insert({
+        clinic_id: clinic.id,
+        patient_id: completionApt.patient_id,
+        appointment_id: completionApt.id,
+        invoice_number: "",
+        date: toLocalDateStr(new Date()),
+        amount: invoiceTotal,
+        service: serviceSummary,
+        status: isPaid ? "paid" : "pending",
+        payment_method: isPaid ? (payMethod === "cash" ? "Efectivo" : payMethod === "card" ? "Tarjeta" : payMethod === "transfer" ? "Transferencia" : payMethod === "yape" ? "Yape" : payMethod === "plin" ? "Plin" : null) : null,
+        paid_at: isPaid ? new Date().toISOString() : null,
+        notes: null,
+      } as Record<string, unknown>);
+    }
+
+    setCompletionSaving(false);
     toast.success(paymentTotal > 0
       ? `Cita completada · Cobro registrado: S/${paymentTotal.toFixed(2)}`
-      : "Cita completada con servicios registrados"
+      : validLines.length > 0 ? "Cita completada con servicios registrados" : "Cita completada"
     );
     setShowCompletionModal(false);
     setCompletionApt(null);
