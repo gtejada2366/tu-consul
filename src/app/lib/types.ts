@@ -252,6 +252,16 @@ export interface PotentialTreatment {
   updated_at: string;
 }
 
+export interface TreatmentPayment {
+  id: string;
+  clinic_id: string;
+  treatment_id: string;
+  amount: number;
+  payment_method: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface Invoice {
   id: string;
   clinic_id: string;

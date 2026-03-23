@@ -9,7 +9,7 @@ import { Modal } from "../../components/ui/modal";
 import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, FileText, Trash2, AlertCircle,
   Plus, User, Heart, Stethoscope, Shield, Tag, X, MessageCircle, CreditCard,
-  Check, DollarSign, ClipboardList
+  Check, DollarSign, ClipboardList, ChevronDown, ChevronUp, Banknote
 } from "lucide-react";
 import { usePatient, usePatientMutations } from "../../hooks/use-patients";
 import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use-appointments";
@@ -17,7 +17,7 @@ import { useMedicalHistory, useConsultationMutations } from "../../hooks/use-med
 import { useClinicUsers, useClinicServices } from "../../hooks/use-clinic";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/auth-context";
-import type { PotentialTreatment } from "../../lib/types";
+import type { PotentialTreatment, TreatmentPayment } from "../../lib/types";
 import { inputClass, labelClass, textareaClass } from "../../components/modals/form-classes";
 import { SearchableSelect } from "../../components/ui/searchable-select";
 import { APPOINTMENT_TYPES, DURATION_OPTIONS, INTEREST_TAGS, getTagColor, STATUS_COLORS, STATUS_LABELS, toLocalDateStr, to12h, generateTimeSlots } from "../../lib/constants";
@@ -77,6 +77,12 @@ export function PatientDetail() {
   const [showAddPotentialModal, setShowAddPotentialModal] = useState(false);
   const [deletingTreatmentId, setDeletingTreatmentId] = useState<string | null>(null);
   const [potentialForm, setPotentialForm] = useState({ service: "", estimated_amount: "", quantity: "1", notes: "" });
+
+  // Payment tracking state
+  const [treatmentPayments, setTreatmentPayments] = useState<Record<string, TreatmentPayment[]>>({});
+  const [showPaymentModal, setShowPaymentModal] = useState<string | null>(null); // treatment id
+  const [paymentForm, setPaymentForm] = useState({ amount: "", payment_method: "cash", notes: "" });
+  const [expandedTreatment, setExpandedTreatment] = useState<string | null>(null);
 
   const [aptForm, setAptForm] = useState({ date: toLocalDateStr(new Date()), start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "", doctor_id: "" });
   const [conForm, setConForm] = useState({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
@@ -158,11 +164,11 @@ export function PatientDetail() {
     }
   }
 
-  // Fetch potential treatments + performed services
+  // Fetch potential treatments + performed services + payments
   async function fetchPotentialTreatments() {
     if (!id || !clinic) return;
     setPotentialLoading(true);
-    const [treatmentsRes, servicesRes] = await Promise.all([
+    const [treatmentsRes, servicesRes, paymentsRes] = await Promise.all([
       supabase
         .from("potential_treatments")
         .select("*")
@@ -175,6 +181,11 @@ export function PatientDetail() {
         .eq("clinic_id", clinic.id)
         .eq("appointments.patient_id", id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("treatment_payments")
+        .select("*")
+        .eq("clinic_id", clinic.id)
+        .order("created_at", { ascending: false }),
     ]);
     if (!mountedRef.current) return;
     if (treatmentsRes.data) setPotentialTreatments(treatmentsRes.data as unknown as PotentialTreatment[]);
@@ -183,6 +194,15 @@ export function PatientDetail() {
         (servicesRes.data as unknown as { id: string; service_name: string; price: number; quantity: number; created_at: string; appointments: { date: string } }[])
           .map(s => ({ id: s.id, service_name: s.service_name, price: s.price, quantity: s.quantity, date: s.appointments.date, created_at: s.created_at }))
       );
+    }
+    // Group payments by treatment_id
+    if (paymentsRes.data) {
+      const grouped: Record<string, TreatmentPayment[]> = {};
+      for (const p of paymentsRes.data as unknown as TreatmentPayment[]) {
+        if (!grouped[p.treatment_id]) grouped[p.treatment_id] = [];
+        grouped[p.treatment_id].push(p);
+      }
+      setTreatmentPayments(grouped);
     }
     setPotentialLoading(false);
   }
@@ -249,6 +269,65 @@ export function PatientDetail() {
     if (error) toast.error("Error al eliminar el servicio");
     else { toast.success("Servicio eliminado"); fetchPotentialTreatments(); }
   }
+
+  // Payment functions
+  function getTreatmentPaid(treatmentId: string): number {
+    return (treatmentPayments[treatmentId] || []).reduce((sum, p) => sum + Number(p.amount), 0);
+  }
+
+  async function handleAddPayment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!clinic || !showPaymentModal) return;
+    const amount = parseFloat(paymentForm.amount);
+    if (isNaN(amount) || amount <= 0) { toast.error("Ingresa un monto válido"); return; }
+
+    // Check it doesn't exceed remaining
+    const treatment = potentialTreatments.find(t => t.id === showPaymentModal);
+    if (treatment) {
+      const total = Number(treatment.estimated_amount) * (treatment.quantity || 1);
+      const paid = getTreatmentPaid(treatment.id);
+      if (amount > total - paid) {
+        toast.error(`El monto excede el saldo pendiente (S/${(total - paid).toFixed(2)})`);
+        return;
+      }
+    }
+
+    setSaving(true);
+    const { error } = await supabase.from("treatment_payments").insert({
+      clinic_id: clinic.id,
+      treatment_id: showPaymentModal,
+      amount,
+      payment_method: paymentForm.payment_method,
+      notes: paymentForm.notes.trim() || null,
+    } as Record<string, unknown>);
+    setSaving(false);
+    if (error) toast.error("Error al registrar el cobro");
+    else {
+      toast.success("Cobro registrado");
+      setShowPaymentModal(null);
+      setPaymentForm({ amount: "", payment_method: "cash", notes: "" });
+      fetchPotentialTreatments();
+    }
+  }
+
+  async function deletePayment(paymentId: string) {
+    if (!clinic) return;
+    const { error } = await supabase
+      .from("treatment_payments")
+      .delete()
+      .eq("id", paymentId)
+      .eq("clinic_id", clinic.id);
+    if (error) toast.error("Error al eliminar el cobro");
+    else { toast.success("Cobro eliminado"); fetchPotentialTreatments(); }
+  }
+
+  const PAYMENT_METHODS = [
+    { value: "cash", label: "Efectivo" },
+    { value: "card", label: "Tarjeta" },
+    { value: "transfer", label: "Transferencia" },
+    { value: "yape", label: "Yape" },
+    { value: "plin", label: "Plin" },
+  ];
 
   if (loading) return <Loading />;
 
@@ -485,7 +564,7 @@ export function PatientDetail() {
                   ) : (
                     <div className="space-y-6">
                       {/* Summary */}
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="p-3 bg-warning/5 border border-warning/20 rounded-[10px] text-center">
                           <p className="text-[1.25rem] font-bold text-warning">{potentialTreatments.filter(t => t.status === "pending").length}</p>
                           <p className="text-[0.6875rem] text-foreground-secondary">Pendientes</p>
@@ -496,7 +575,16 @@ export function PatientDetail() {
                         </div>
                         <div className="p-3 bg-primary/5 border border-primary/20 rounded-[10px] text-center">
                           <p className="text-[1.25rem] font-bold text-primary">{performedServices.length}</p>
-                          <p className="text-[0.6875rem] text-foreground-secondary">Servicios Facturados</p>
+                          <p className="text-[0.6875rem] text-foreground-secondary">Facturados</p>
+                        </div>
+                        <div className="p-3 bg-success/5 border border-success/20 rounded-[10px] text-center">
+                          <p className="text-[1.25rem] font-bold text-success">
+                            {potentialTreatments.filter(t => {
+                              const total = Number(t.estimated_amount) * (t.quantity || 1);
+                              return total > 0 && getTreatmentPaid(t.id) >= total - 0.01;
+                            }).length}
+                          </p>
+                          <p className="text-[0.6875rem] text-foreground-secondary">Pagados</p>
                         </div>
                       </div>
 
@@ -508,44 +596,142 @@ export function PatientDetail() {
                             const qty = t.quantity || 1;
                             const unitPrice = Number(t.estimated_amount);
                             const lineTotal = unitPrice * qty;
+                            const paid = getTreatmentPaid(t.id);
+                            const remaining = lineTotal - paid;
+                            const paidPct = lineTotal > 0 ? Math.min(100, (paid / lineTotal) * 100) : 0;
+                            const isFullyPaid = remaining <= 0.01;
+                            const payments = treatmentPayments[t.id] || [];
+                            const isExpanded = expandedTreatment === t.id;
                             return (
-                            <div key={t.id} className={`flex items-center gap-3 p-4 rounded-[10px] border transition-all ${t.status === "completed" ? "border-success/30 bg-success/5" : "border-border"}`}>
-                              <button
-                                onClick={() => togglePotentialStatus(t)}
-                                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-                                  ${t.status === "completed" ? "bg-success border-success text-white" : "border-border hover:border-primary"}`}
-                              >
-                                {t.status === "completed" && <Check className="w-3.5 h-3.5" />}
-                              </button>
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-[0.875rem] font-medium ${t.status === "completed" ? "text-foreground-secondary line-through" : "text-foreground"}`}>
-                                  {t.service}
-                                </p>
-                                <p className="text-[0.75rem] text-foreground-secondary">
-                                  {qty > 1 ? `${qty} × S/${unitPrice.toFixed(2)}` : `S/${unitPrice.toFixed(2)}`}
-                                  {t.notes ? ` · ${t.notes}` : ""}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <span className={`text-[0.875rem] font-semibold ${t.status === "completed" ? "text-success" : "text-primary"}`}>
-                                  S/{lineTotal.toFixed(2)}
-                                </span>
-                                <button onClick={() => setDeletingTreatmentId(t.id)} aria-label="Eliminar servicio"
-                                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-danger/10 text-foreground-secondary hover:text-danger transition-colors">
-                                  <Trash2 className="w-3.5 h-3.5" />
+                            <div key={t.id} className={`rounded-[10px] border transition-all ${t.status === "completed" ? "border-success/30 bg-success/5" : "border-border"}`}>
+                              <div className="flex items-center gap-3 p-4">
+                                <button
+                                  onClick={() => togglePotentialStatus(t)}
+                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
+                                    ${t.status === "completed" ? "bg-success border-success text-white" : "border-border hover:border-primary"}`}
+                                >
+                                  {t.status === "completed" && <Check className="w-3.5 h-3.5" />}
                                 </button>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-[0.875rem] font-medium ${t.status === "completed" ? "text-foreground-secondary line-through" : "text-foreground"}`}>
+                                    {t.service}
+                                  </p>
+                                  <p className="text-[0.75rem] text-foreground-secondary">
+                                    {qty > 1 ? `${qty} × S/${unitPrice.toFixed(2)}` : `S/${unitPrice.toFixed(2)}`}
+                                    {t.notes ? ` · ${t.notes}` : ""}
+                                  </p>
+                                  {/* Payment progress bar */}
+                                  {lineTotal > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex-1 h-2 bg-border/50 rounded-full overflow-hidden">
+                                          <div
+                                            className={`h-full rounded-full transition-all ${isFullyPaid ? "bg-success" : "bg-primary"}`}
+                                            style={{ width: `${paidPct}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-[0.6875rem] text-foreground-secondary whitespace-nowrap">{Math.round(paidPct)}%</span>
+                                      </div>
+                                      <p className="text-[0.6875rem] text-foreground-secondary">
+                                        Pagado: <span className="font-medium text-success">S/{paid.toFixed(2)}</span>
+                                        {" · "}Saldo: <span className={`font-medium ${isFullyPaid ? "text-success" : "text-warning"}`}>S/{Math.max(0, remaining).toFixed(2)}</span>
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <span className={`text-[0.875rem] font-semibold ${t.status === "completed" ? "text-success" : "text-primary"}`}>
+                                    S/{lineTotal.toFixed(2)}
+                                  </span>
+                                  {/* Register payment button */}
+                                  {!isFullyPaid && (
+                                    <button
+                                      onClick={() => {
+                                        setPaymentForm({ amount: String(remaining.toFixed(2)), payment_method: "cash", notes: "" });
+                                        setShowPaymentModal(t.id);
+                                      }}
+                                      aria-label="Registrar cobro"
+                                      title="Registrar cobro"
+                                      className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-primary/10 text-foreground-secondary hover:text-primary transition-colors"
+                                    >
+                                      <Banknote className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {/* Expand payment history */}
+                                  {payments.length > 0 && (
+                                    <button
+                                      onClick={() => setExpandedTreatment(isExpanded ? null : t.id)}
+                                      aria-label="Ver cobros"
+                                      className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-alt text-foreground-secondary transition-colors"
+                                    >
+                                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                    </button>
+                                  )}
+                                  <button onClick={() => setDeletingTreatmentId(t.id)} aria-label="Eliminar servicio"
+                                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-danger/10 text-foreground-secondary hover:text-danger transition-colors">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
+
+                              {/* Payment history (expandable) */}
+                              {isExpanded && payments.length > 0 && (
+                                <div className="border-t border-border/50 px-4 py-3 bg-surface-alt/30">
+                                  <p className="text-[0.6875rem] font-semibold text-foreground-secondary uppercase tracking-wide mb-2">Historial de Cobros</p>
+                                  <div className="space-y-1.5">
+                                    {payments.map(p => (
+                                      <div key={p.id} className="flex items-center justify-between text-[0.75rem]">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-success" />
+                                          <span className="text-foreground font-medium">S/{Number(p.amount).toFixed(2)}</span>
+                                          <span className="text-foreground-secondary">
+                                            — {PAYMENT_METHODS.find(m => m.value === p.payment_method)?.label || p.payment_method}
+                                          </span>
+                                          {p.notes && <span className="text-foreground-secondary">· {p.notes}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-foreground-secondary">{new Date(p.created_at).toLocaleDateString("es-PE")}</span>
+                                          <button
+                                            onClick={() => deletePayment(p.id)}
+                                            className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-danger/10 text-foreground-secondary hover:text-danger transition-colors"
+                                            aria-label="Eliminar cobro"
+                                          >
+                                            <X className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             );
                           })}
 
-                          {/* Total Potencial */}
-                          <div className="flex items-center justify-between p-4 bg-primary/5 rounded-[10px] border border-primary/20 mt-2">
-                            <span className="text-[0.875rem] font-semibold text-foreground">Total Pendiente</span>
-                            <span className="text-[1.125rem] font-bold text-primary">
-                              S/{potentialTreatments.filter(t => t.status === "pending").reduce((sum, t) => sum + Number(t.estimated_amount) * (t.quantity || 1), 0).toFixed(2)}
-                            </span>
-                          </div>
+                          {/* Totals summary */}
+                          {(() => {
+                            const totalPlanned = potentialTreatments.reduce((sum, t) => sum + Number(t.estimated_amount) * (t.quantity || 1), 0);
+                            const totalPaid = potentialTreatments.reduce((sum, t) => sum + getTreatmentPaid(t.id), 0);
+                            const totalRemaining = totalPlanned - totalPaid;
+                            return (
+                              <div className="space-y-2 mt-2">
+                                <div className="flex items-center justify-between p-4 bg-primary/5 rounded-[10px] border border-primary/20">
+                                  <span className="text-[0.875rem] font-semibold text-foreground">Total Planificado</span>
+                                  <span className="text-[1.125rem] font-bold text-primary">S/{totalPlanned.toFixed(2)}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="flex items-center justify-between p-3 bg-success/5 rounded-[10px] border border-success/20">
+                                    <span className="text-[0.8125rem] text-foreground-secondary">Cobrado</span>
+                                    <span className="text-[0.9375rem] font-bold text-success">S/{totalPaid.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between p-3 bg-warning/5 rounded-[10px] border border-warning/20">
+                                    <span className="text-[0.8125rem] text-foreground-secondary">Por Cobrar</span>
+                                    <span className="text-[0.9375rem] font-bold text-warning">S/{Math.max(0, totalRemaining).toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 
@@ -676,6 +862,59 @@ export function PatientDetail() {
             }}>Eliminar</Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal open={!!showPaymentModal} onClose={() => setShowPaymentModal(null)} title="Registrar Cobro" size="md">
+        {(() => {
+          const treatment = potentialTreatments.find(t => t.id === showPaymentModal);
+          if (!treatment) return null;
+          const total = Number(treatment.estimated_amount) * (treatment.quantity || 1);
+          const paid = getTreatmentPaid(treatment.id);
+          const remaining = total - paid;
+          return (
+            <form onSubmit={handleAddPayment} className="space-y-4">
+              {/* Treatment info */}
+              <div className="p-3 bg-surface-alt rounded-[10px]">
+                <p className="text-[0.875rem] font-medium text-foreground">{treatment.service}</p>
+                <div className="flex items-center gap-4 mt-1 text-[0.75rem] text-foreground-secondary">
+                  <span>Total: <strong className="text-primary">S/{total.toFixed(2)}</strong></span>
+                  <span>Pagado: <strong className="text-success">S/{paid.toFixed(2)}</strong></span>
+                  <span>Saldo: <strong className="text-warning">S/{remaining.toFixed(2)}</strong></span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Monto a cobrar (S/) *</label>
+                  <input type="number" step="0.01" min="0.01" max={remaining} className={inputClass}
+                    placeholder={remaining.toFixed(2)}
+                    value={paymentForm.amount}
+                    onChange={e => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
+                </div>
+                <div>
+                  <label className={labelClass}>Método de pago</label>
+                  <select className={inputClass} value={paymentForm.payment_method}
+                    onChange={e => setPaymentForm({ ...paymentForm, payment_method: e.target.value })}>
+                    {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Notas</label>
+                <textarea className={textareaClass} placeholder="Ej: Pago de primera cita..."
+                  value={paymentForm.notes}
+                  onChange={e => setPaymentForm({ ...paymentForm, notes: e.target.value })} />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                <Button variant="tertiary" size="md" onClick={() => setShowPaymentModal(null)} type="button">Cancelar</Button>
+                <Button variant="primary" size="md" type="submit" disabled={saving}>{saving ? "Registrando..." : "Registrar Cobro"}</Button>
+              </div>
+            </form>
+          );
+        })()}
       </Modal>
 
       {/* Delete Modal */}
