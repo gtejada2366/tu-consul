@@ -8,7 +8,7 @@ import { Loading } from "../components/ui/loading";
 import { Modal } from "../components/ui/modal";
 import {
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Search,
-  Calendar as CalendarIcon, Clock, User, X, FileText,
+  Calendar as CalendarIcon, Clock, User, X, FileText, AlertCircle,
   TrendingUp, Users, DollarSign
 } from "lucide-react";
 import { useAppointments, useWeekAppointments, useAppointmentMutations } from "../hooks/use-appointments";
@@ -136,9 +136,14 @@ export function Agenda() {
     if (!aptId) return;
     const apt = appointments.find(a => a.id === aptId) || weekAppointments.find(a => a.id === aptId);
     if (!apt || apt.start_time?.slice(0, 5) === newTime) return;
+    const overlaps = findOverlaps(apt.date, newTime, apt.duration_minutes || 30, aptId);
     const { error } = await updateAppointment(aptId, { start_time: newTime });
     if (error) { toast.error(error); }
-    else { toast.success(`Cita movida a ${to12h(newTime)}`); setSelectedAppointment(null); refetch(); refetchWeek(); }
+    else {
+      toast.success(`Cita movida a ${to12h(newTime)}`);
+      if (overlaps.length > 0) toast.warning(`Se traslapa con ${overlaps.length} cita(s) existente(s)`);
+      setSelectedAppointment(null); refetch(); refetchWeek();
+    }
   }
 
   async function handleDropOnDay(e: React.DragEvent, newDate: string) {
@@ -148,13 +153,38 @@ export function Agenda() {
     if (!aptId) return;
     const apt = weekAppointments.find(a => a.id === aptId);
     if (!apt || apt.date === newDate) return;
+    const overlaps = findOverlaps(newDate, apt.start_time?.slice(0, 5) || "09:00", apt.duration_minutes || 30, aptId);
     const { error } = await updateAppointment(aptId, { date: newDate });
     if (error) { toast.error(error); }
-    else { toast.success(`Cita movida a ${new Date(newDate + "T00:00").toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}`); setSelectedAppointment(null); refetch(); refetchWeek(); }
+    else {
+      toast.success(`Cita movida a ${new Date(newDate + "T00:00").toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}`);
+      if (overlaps.length > 0) toast.warning(`Se traslapa con ${overlaps.length} cita(s) existente(s)`);
+      setSelectedAppointment(null); refetch(); refetchWeek();
+    }
   }
 
   function goToDay(offset: number) { const d = new Date(currentDate); d.setDate(d.getDate() + (view === "week" ? offset * 7 : offset)); setCurrentDate(d); setSelectedAppointment(null); }
   function goToToday() { setCurrentDate(new Date()); setSelectedAppointment(null); }
+
+  /** Check if a proposed appointment overlaps with existing ones */
+  function findOverlaps(date: string, startTime: string, durationMin: number, excludeId?: string) {
+    const allApts = view === "day" ? appointments : weekAppointments;
+    const newStart = timeToMin(startTime);
+    const newEnd = newStart + durationMin;
+    return allApts.filter(a => {
+      if (a.date !== date) return false;
+      if (a.status === "cancelled") return false;
+      if (excludeId && a.id === excludeId) return false;
+      const aStart = timeToMin(a.start_time?.slice(0, 5) || "00:00");
+      const aEnd = aStart + (a.duration_minutes || 30);
+      return newStart < aEnd && newEnd > aStart;
+    });
+  }
+
+  function timeToMin(t: string) {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  }
 
   function openCreateModal(time?: string, date?: string) {
     setAptForm({ patient_id: "", doctor_id: "", date: date || formatDate(currentDate), start_time: time || "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "" });
@@ -172,9 +202,20 @@ export function Agenda() {
     setShowEditModal(true);
   }
 
+  const [overlapConfirmed, setOverlapConfirmed] = useState(false);
+
   async function handleCreateApt(e: React.FormEvent) {
     e.preventDefault();
     if (!aptForm.patient_id || !aptForm.type) { toast.error("Paciente y tipo son obligatorios"); return; }
+
+    // Check for overlaps and require confirmation
+    const overlaps = findOverlaps(aptForm.date, aptForm.start_time, parseInt(aptForm.duration_minutes));
+    if (overlaps.length > 0 && !overlapConfirmed) {
+      setOverlapConfirmed(true);
+      toast.warning("Hay citas en este horario. Presiona 'Crear Cita' de nuevo para confirmar.");
+      return;
+    }
+
     setSaving(true);
     const { error } = await createAppointment({
       patient_id: aptForm.patient_id, doctor_id: aptForm.doctor_id || undefined, date: aptForm.date, start_time: aptForm.start_time,
@@ -183,7 +224,7 @@ export function Agenda() {
     });
     setSaving(false);
     if (error) { toast.error(error); }
-    else { toast.success("Cita creada"); setShowCreateModal(false); refetch(); refetchWeek(); }
+    else { toast.success("Cita creada"); setShowCreateModal(false); setOverlapConfirmed(false); refetch(); refetchWeek(); }
   }
 
   async function handleEditApt(e: React.FormEvent) {
@@ -660,16 +701,30 @@ export function Agenda() {
             </select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className={labelClass}>Fecha *</label><input type="date" className={inputClass} value={aptForm.date} onChange={e => setAptForm({ ...aptForm, date: e.target.value })} /></div>
-            <div><label className={labelClass}>Hora *</label><input type="time" className={inputClass} value={aptForm.start_time} onChange={e => setAptForm({ ...aptForm, start_time: e.target.value })} /></div>
+            <div><label className={labelClass}>Fecha *</label><input type="date" className={inputClass} value={aptForm.date} onChange={e => { setAptForm({ ...aptForm, date: e.target.value }); setOverlapConfirmed(false); }} /></div>
+            <div><label className={labelClass}>Hora *</label><input type="time" className={inputClass} value={aptForm.start_time} onChange={e => { setAptForm({ ...aptForm, start_time: e.target.value }); setOverlapConfirmed(false); }} /></div>
           </div>
+          {/* Overlap warning */}
+          {aptForm.date && aptForm.start_time && (() => {
+            const overlaps = findOverlaps(aptForm.date, aptForm.start_time, parseInt(aptForm.duration_minutes));
+            if (overlaps.length === 0) return null;
+            return (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div className="text-[0.8125rem]">
+                  <p className="font-medium">Conflicto de horario</p>
+                  <p className="mt-0.5 text-[0.75rem]">{overlaps.length === 1 ? "Ya existe 1 cita" : `Ya existen ${overlaps.length} citas`} en este horario: {overlaps.map(a => a.patient?.full_name || "—").join(", ")}</p>
+                </div>
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Tipo de Cita *</label>
               <select className={inputClass} value={aptForm.type} onChange={e => setAptForm({ ...aptForm, type: e.target.value })}>
                 {APPOINTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select></div>
             <div><label className={labelClass}>Duración</label>
-              <select className={inputClass} value={aptForm.duration_minutes} onChange={e => setAptForm({ ...aptForm, duration_minutes: e.target.value })}>
+              <select className={inputClass} value={aptForm.duration_minutes} onChange={e => { setAptForm({ ...aptForm, duration_minutes: e.target.value }); setOverlapConfirmed(false); }}>
                 {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select></div>
           </div>
@@ -699,6 +754,20 @@ export function Agenda() {
             <div><label className={labelClass}>Fecha</label><input type="date" className={inputClass} value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} /></div>
             <div><label className={labelClass}>Hora</label><input type="time" className={inputClass} value={editForm.start_time} onChange={e => setEditForm({ ...editForm, start_time: e.target.value })} /></div>
           </div>
+          {/* Overlap warning */}
+          {editForm.date && editForm.start_time && (() => {
+            const overlaps = findOverlaps(editForm.date, editForm.start_time, parseInt(editForm.duration_minutes || "30"), selectedAppointment?.id);
+            if (overlaps.length === 0) return null;
+            return (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div className="text-[0.8125rem]">
+                  <p className="font-medium">Conflicto de horario</p>
+                  <p className="mt-0.5 text-[0.75rem]">{overlaps.length === 1 ? "Ya existe 1 cita" : `Ya existen ${overlaps.length} citas`} en este horario: {overlaps.map(a => a.patient?.full_name || "—").join(", ")}</p>
+                </div>
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelClass}>Tipo de Cita</label>
               <select className={inputClass} value={editForm.type} onChange={e => setEditForm({ ...editForm, type: e.target.value })}>
