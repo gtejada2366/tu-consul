@@ -64,15 +64,16 @@ export function Campaigns() {
     [patients],
   );
 
-  // Collect all unique tags: predefined + any dynamic tags from patients
+  // Collect all unique tags with patient counts
   const allTags = useMemo(() => {
-    const tagSet = new Set(INTEREST_TAGS);
+    const countMap: Record<string, number> = {};
+    for (const tag of INTEREST_TAGS) countMap[tag] = 0;
     for (const p of activePatients) {
       for (const tag of p.interest_tags ?? []) {
-        tagSet.add(tag);
+        countMap[tag] = (countMap[tag] || 0) + 1;
       }
     }
-    return Array.from(tagSet).sort((a, b) => a.localeCompare(b, "es"));
+    return Object.entries(countMap).sort(([a], [b]) => a.localeCompare(b, "es"));
   }, [activePatients]);
 
   const filtered = useMemo(() => {
@@ -149,10 +150,10 @@ export function Campaigns() {
                       setSentIds(new Set());
                     }}
                   >
-                    <option value="">Todos los pacientes</option>
-                    {allTags.map((tag) => (
+                    <option value="">Todos los pacientes ({activePatients.length})</option>
+                    {allTags.map(([tag, count]) => (
                       <option key={tag} value={tag}>
-                        {tag}
+                        {tag} ({count})
                       </option>
                     ))}
                   </select>
