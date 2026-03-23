@@ -321,7 +321,6 @@ export function Agenda() {
   async function handleCompleteAppointment() {
     if (!completionApt || !clinic) return;
     const validLines = completionLines.filter(l => l.service_name.trim());
-    if (validLines.length === 0) { toast.error("Agrega al menos un servicio realizado"); return; }
 
     // Validate payments
     const validPayments = completionPayments.filter(p => {
@@ -345,19 +344,21 @@ export function Agenda() {
     const { error: aptError } = await updateAppointment(completionApt.id, { status: "completed" });
     if (aptError) { toast.error(aptError); setCompletionSaving(false); return; }
 
-    // 2. Insert appointment_services
-    const { error: svcError } = await supabase
-      .from("appointment_services")
-      .insert(validLines.map(l => ({
-        appointment_id: completionApt.id,
-        clinic_id: clinic.id,
-        service_id: l.service_id,
-        service_name: l.service_name,
-        price: l.price,
-        quantity: l.quantity,
-      })) as Record<string, unknown>[]);
+    // 2. Insert appointment_services (if any)
+    if (validLines.length > 0) {
+      const { error: svcError } = await supabase
+        .from("appointment_services")
+        .insert(validLines.map(l => ({
+          appointment_id: completionApt.id,
+          clinic_id: clinic.id,
+          service_id: l.service_id,
+          service_name: l.service_name,
+          price: l.price,
+          quantity: l.quantity,
+        })) as Record<string, unknown>[]);
 
-    if (svcError) { toast.error("Cita completada pero hubo un error al guardar los servicios"); }
+      if (svcError) { toast.error("Cita completada pero hubo un error al guardar los servicios"); }
+    }
 
     // 3. Insert treatment payments
     if (validPayments.length > 0) {
