@@ -91,7 +91,11 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 py-6">
         <ul className="space-y-1 px-3">
-          {navigation.filter(item => (item.href !== "/facturacion" && item.href !== "/comprobantes" && item.href !== "/reportes") || user?.role === "admin").map((item) => {
+          {navigation.filter(item => {
+            if (item.href === "/doctores" && user?.role === "doctor") return false;
+            if ((item.href === "/facturacion" || item.href === "/comprobantes" || item.href === "/reportes") && user?.role !== "admin") return false;
+            return true;
+          }).map((item) => {
             const isActive = location.pathname === item.href ||
               (item.href !== "/" && location.pathname.startsWith(item.href));
 
