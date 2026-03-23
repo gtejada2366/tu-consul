@@ -64,6 +64,17 @@ export function Campaigns() {
     [patients],
   );
 
+  // Collect all unique tags: predefined + any dynamic tags from patients
+  const allTags = useMemo(() => {
+    const tagSet = new Set(INTEREST_TAGS);
+    for (const p of activePatients) {
+      for (const tag of p.interest_tags ?? []) {
+        tagSet.add(tag);
+      }
+    }
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b, "es"));
+  }, [activePatients]);
+
   const filtered = useMemo(() => {
     return activePatients.filter((p) => {
       const hasPhone = !!(p.phone || p.phone_mobile);
@@ -139,7 +150,7 @@ export function Campaigns() {
                     }}
                   >
                     <option value="">Todos los pacientes</option>
-                    {INTEREST_TAGS.map((tag) => (
+                    {allTags.map((tag) => (
                       <option key={tag} value={tag}>
                         {tag}
                       </option>
