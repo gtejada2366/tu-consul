@@ -371,20 +371,18 @@ export function Agenda() {
         </div>
       </CardContent></Card>
 
-      {/* Type legend — collapsible */}
-      {!headerCollapsed && (
-        <div className="flex items-center gap-3 flex-wrap px-1">
-          {APPOINTMENT_TYPES.map(t => {
-            const tc = getTypeColor(t);
-            return (
-              <div key={t} className="flex items-center gap-1.5">
-                <span className={`w-2.5 h-2.5 rounded-full ${tc.dot} flex-shrink-0`} />
-                <span className="text-[0.6875rem] text-foreground-secondary">{t}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Type legend — always visible */}
+      <div className="flex items-center gap-3 flex-wrap px-1">
+        {APPOINTMENT_TYPES.filter(t => !["Limpieza", "Ortodoncia", "Endodoncia"].includes(t)).map(t => {
+          const tc = getTypeColor(t);
+          return (
+            <div key={t} className="flex items-center gap-1.5">
+              <span className={`w-2.5 h-2.5 rounded-full ${tc.dot} flex-shrink-0`} />
+              <span className="text-[0.6875rem] text-foreground-secondary">{t}</span>
+            </div>
+          );
+        })}
+      </div>
 
       <div>
         <Card><CardContent className="p-0">
