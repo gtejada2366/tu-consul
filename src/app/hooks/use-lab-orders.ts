@@ -135,13 +135,14 @@ export function useLabOrderMutations() {
     if (!clinic) return { error: "No hay clínica activa" };
 
     // Get current order to check amounts
-    const { data: order } = await supabase
+    const { data: order, error: fetchError } = await supabase
       .from("lab_orders")
       .select("cost, amount_paid")
       .eq("id", orderId)
       .eq("clinic_id", clinic.id)
       .single();
 
+    if (fetchError) return { error: fetchError.message };
     if (!order) return { error: "Pedido no encontrado" };
 
     const currentPaid = Number(order.amount_paid) || 0;
@@ -194,12 +195,14 @@ export function useLabOrderMutations() {
     if (delError) return { error: delError.message };
 
     // Get current order to recalculate
-    const { data: order } = await supabase
+    const { data: order, error: fetchErr } = await supabase
       .from("lab_orders")
       .select("cost, amount_paid")
       .eq("id", orderId)
       .eq("clinic_id", clinic.id)
       .single();
+
+    if (fetchErr) return { error: fetchErr.message };
 
     if (order) {
       const newPaid = Math.max(0, (Number(order.amount_paid) || 0) - paymentAmount);
