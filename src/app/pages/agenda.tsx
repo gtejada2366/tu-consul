@@ -78,6 +78,7 @@ export function Agenda() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [agendaSearch, setAgendaSearch] = useState("");
+  const [selectedDoctors, setSelectedDoctors] = useState<string[]>([]);
   const { users: clinicUsers } = useClinicUsers();
   const { services: clinicServicesList } = useClinicServices();
   const { clinic, user } = useAuth();
@@ -197,6 +198,17 @@ export function Agenda() {
   function timeToMin(t: string) {
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
+  }
+
+  function toggleDoctor(doctorId: string) {
+    setSelectedDoctors(prev =>
+      prev.includes(doctorId) ? prev.filter(id => id !== doctorId) : [...prev, doctorId]
+    );
+  }
+
+  function matchesDoctorFilter(apt: AppointmentWithRelations) {
+    if (selectedDoctors.length === 0) return true;
+    return apt.doctor_id != null && selectedDoctors.includes(apt.doctor_id);
   }
 
   function openCreateModal(time?: string, date?: string) {
@@ -532,6 +544,41 @@ export function Agenda() {
         })}
       </div>
 
+      {/* Doctor filter */}
+      {!isDoctor && doctors.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap px-1">
+          <span className="text-[0.6875rem] font-medium text-foreground-secondary flex-shrink-0">
+            <User className="w-3.5 h-3.5 inline mr-1" />Doctor:
+          </span>
+          <button
+            onClick={() => setSelectedDoctors([])}
+            className={`h-8 px-3 text-[0.75rem] font-medium rounded-[10px] transition-all ${
+              selectedDoctors.length === 0
+                ? "bg-primary text-white"
+                : "bg-surface-alt text-foreground-secondary hover:text-foreground"
+            }`}
+          >
+            Todos
+          </button>
+          {doctors.map(d => {
+            const isSelected = selectedDoctors.includes(d.id);
+            return (
+              <button
+                key={d.id}
+                onClick={() => toggleDoctor(d.id)}
+                className={`h-8 px-3 text-[0.75rem] font-medium rounded-[10px] transition-all ${
+                  isSelected
+                    ? "bg-primary text-white"
+                    : "bg-surface-alt text-foreground-secondary hover:text-foreground"
+                }`}
+              >
+                {d.full_name.startsWith("Dr.") ? d.full_name : `Dr. ${d.full_name}`}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div>
         <Card><CardContent className="p-0">
           {(view === "day" ? loading : weekLoading) ? <Loading /> : view === "day" ? (
@@ -544,6 +591,7 @@ export function Agenda() {
                   </div>
                 </div>
                 {agendaSearch.trim() && appointments.filter(a => {
+                  if (!matchesDoctorFilter(a)) return false;
                   const q = agendaSearch.toLowerCase();
                   return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
                 }).length === 0 && (
@@ -577,6 +625,7 @@ export function Agenda() {
                           {slots.map((time, slotIdx) => {
                             const slotApts = appointments.filter(a => {
                               if (a.start_time?.slice(0, 5) !== time) return false;
+                              if (!matchesDoctorFilter(a)) return false;
                               if (!agendaSearch.trim()) return true;
                               const q = agendaSearch.toLowerCase();
                               return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
@@ -630,6 +679,7 @@ export function Agenda() {
                   </div>
                 </div>
                 {agendaSearch.trim() && weekAppointments.filter(a => {
+                  if (!matchesDoctorFilter(a)) return false;
                   const q = agendaSearch.toLowerCase();
                   return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
                 }).length === 0 && (
@@ -688,6 +738,7 @@ export function Agenda() {
                                 const isHalf = slotIdx > 0;
                                 const slotApts = weekAppointments.filter(a => {
                                   if (a.date !== dateStr || a.start_time?.slice(0, 5) !== time) return false;
+                                  if (!matchesDoctorFilter(a)) return false;
                                   if (!agendaSearch.trim()) return true;
                                   const q = agendaSearch.toLowerCase();
                                   return (a.patient?.full_name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q);
