@@ -50,6 +50,10 @@
     background: var(--white);
   }
 
+  .page:last-child {
+    page-break-after: auto;
+  }
+
   /* ==================== PAGE 1: COVER ==================== */
   .cover {
     background: linear-gradient(135deg, #1E40AF 0%, #2563EB 40%, #3B82F6 100%);
@@ -514,14 +518,14 @@
 
   /* ==================== PAGE 5: CTA / CONTACT ==================== */
   .cta-page {
-    padding: 50px;
+    padding: 40px 50px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
   }
 
   .why-section {
-    margin-bottom: 32px;
+    margin-bottom: 20px;
   }
 
   .why-grid {
@@ -557,7 +561,7 @@
   }
 
   .steps-section {
-    margin-bottom: 32px;
+    margin-bottom: 20px;
   }
 
   .steps {
@@ -614,7 +618,7 @@
   .final-cta {
     background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue) 100%);
     border-radius: 20px;
-    padding: 40px;
+    padding: 28px 40px;
     color: var(--white);
     text-align: center;
     position: relative;
@@ -633,15 +637,15 @@
   }
 
   .final-cta h2 {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 800;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
   .final-cta p {
-    font-size: 15px;
+    font-size: 14px;
     opacity: 0.85;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     max-width: 400px;
     margin-left: auto;
     margin-right: auto;
@@ -666,7 +670,7 @@
 
   .footer-brand {
     margin-top: auto;
-    padding-top: 24px;
+    padding-top: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
