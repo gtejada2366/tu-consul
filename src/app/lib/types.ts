@@ -355,9 +355,21 @@ export interface LabOrder {
   status: "ordered" | "in_progress" | "received";
   payment_status: "pending" | "paid";
   cost: number | null;
+  amount_paid: number;
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface LabPayment {
+  id: string;
+  clinic_id: string;
+  lab_order_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  notes: string | null;
+  created_at: string;
 }
 
 export interface LabOrderWithRelations extends LabOrder {

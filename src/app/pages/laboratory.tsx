@@ -17,7 +17,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useLabOrders, useLabOrderMutations } from "../hooks/use-lab-orders";
+import { useLabOrders, useLabOrderMutations, useLabPayments } from "../hooks/use-lab-orders";
 import { usePatients } from "../hooks/use-patients";
 import { useDoctors } from "../hooks/use-doctors";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
@@ -27,6 +27,7 @@ import {
   LAB_PAYMENT_STATUSES,
   LAB_ITEMS,
   LAB_MATERIALS,
+  PAYMENT_METHODS,
   toLocalDateStr,
 } from "../lib/constants";
 import { SearchableSelect } from "../components/ui/searchable-select";
@@ -54,7 +55,7 @@ const emptyForm = {
 
 export function Laboratory() {
   const { orders, loading, totalCost, pendingPayment, pendingCount, refetch } = useLabOrders();
-  const { createLabOrder, markAsPaid, markAsReceived, updateLabOrder, deleteLabOrder } = useLabOrderMutations();
+  const { createLabOrder, markAsReceived, updateLabOrder, registerPayment, deletePayment, deleteLabOrder } = useLabOrderMutations();
   const { patients } = usePatients();
   const { doctors } = useDoctors();
 
@@ -66,11 +67,16 @@ export function Laboratory() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<LabOrderWithRelations | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<LabOrderWithRelations | null>(null);
+  const [payingOrder, setPayingOrder] = useState<LabOrderWithRelations | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
+  const [payForm, setPayForm] = useState({ amount: "", payment_date: toLocalDateStr(new Date()), payment_method: "Efectivo", notes: "" });
+
+  const { payments, refetchPayments } = useLabPayments(selectedOrder?.id ?? payingOrder?.id ?? null);
 
   const filtered = useMemo(() => orders.filter((o) => {
     const patientName = o.patient?.full_name || "";
@@ -113,18 +119,58 @@ export function Laboratory() {
     }
   }
 
-  async function handleMarkPaid(id: string) {
+  function openPayment(order: LabOrderWithRelations) {
+    const remaining = (order.cost || 0) - (order.amount_paid || 0);
+    setPayingOrder(order);
+    setPayForm({
+      amount: remaining > 0 ? remaining.toFixed(2) : "",
+      payment_date: toLocalDateStr(new Date()),
+      payment_method: "Efectivo",
+      notes: "",
+    });
+    setShowPaymentModal(true);
+  }
+
+  async function handleRegisterPayment() {
+    if (!payingOrder) return;
+    const amount = parseFloat(payForm.amount);
+    if (!amount || amount <= 0) {
+      toast.error("Ingresa un monto válido");
+      return;
+    }
+    if (!payForm.payment_date) {
+      toast.error("Ingresa la fecha de pago");
+      return;
+    }
     setSaving(true);
-    const { error } = await markAsPaid(id);
+    const { error } = await registerPayment(payingOrder.id, {
+      amount,
+      payment_date: payForm.payment_date,
+      payment_method: payForm.payment_method,
+      notes: payForm.notes.trim() || undefined,
+    });
     setSaving(false);
     if (error) {
       toast.error(error);
     } else {
-      toast.success("Marcado como pagado");
+      toast.success("Pago registrado");
+      setShowPaymentModal(false);
+      setPayingOrder(null);
       refetch();
-      if (selectedOrder?.id === id) {
-        setSelectedOrder({ ...selectedOrder, payment_status: "paid" });
-      }
+      refetchPayments();
+    }
+  }
+
+  async function handleDeletePayment(paymentId: string, orderId: string, amount: number) {
+    setSaving(true);
+    const { error } = await deletePayment(paymentId, orderId, amount);
+    setSaving(false);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success("Pago eliminado");
+      refetch();
+      refetchPayments();
     }
   }
 
@@ -440,6 +486,24 @@ export function Laboratory() {
                           <Badge variant={order.payment_status === "paid" ? "success" : "warning"}>
                             {order.payment_status === "paid" ? "Pagado" : "Pendiente"}
                           </Badge>
+                          {order.payment_status !== "paid" && (order.amount_paid || 0) > 0 && order.cost != null && (
+                            <div className="mt-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex-1 h-1.5 bg-border/50 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-success rounded-full"
+                                    style={{ width: `${Math.min(100, ((order.amount_paid || 0) / order.cost) * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-[0.625rem] text-foreground-secondary">
+                                  {Math.round(((order.amount_paid || 0) / order.cost) * 100)}%
+                                </span>
+                              </div>
+                              <p className="text-[0.6875rem] text-foreground-secondary mt-0.5">
+                                S/{(order.amount_paid || 0).toLocaleString()} / S/{order.cost.toLocaleString()}
+                              </p>
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
@@ -465,11 +529,11 @@ export function Laboratory() {
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
-                            {order.payment_status !== "paid" && (
+                            {order.payment_status !== "paid" && order.cost != null && order.cost > 0 && (
                               <Button
                                 variant="primary"
                                 size="sm"
-                                onClick={() => handleMarkPaid(order.id)}
+                                onClick={() => openPayment(order)}
                                 disabled={saving}
                               >
                                 <DollarSign className="w-3.5 h-3.5 mr-1" />
@@ -840,6 +904,97 @@ export function Laboratory() {
         </div>
       </Modal>
 
+      {/* Payment Modal */}
+      <Modal
+        open={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        title="Registrar Pago"
+        size="md"
+      >
+        {payingOrder && (
+          <div className="space-y-4">
+            <div className="p-3 bg-surface-alt rounded-[10px]">
+              <p className="text-[0.875rem] font-medium text-foreground">
+                {payingOrder.item_description} — {payingOrder.patient?.full_name}
+              </p>
+              <p className="text-[0.75rem] text-foreground-secondary mt-0.5">
+                {payingOrder.lab_name}
+              </p>
+              <div className="flex items-center gap-4 mt-2 text-[0.75rem] text-foreground-secondary">
+                <span>Total: <strong className="text-primary">S/{(payingOrder.cost || 0).toFixed(2)}</strong></span>
+                <span>Pagado: <strong className="text-success">S/{(payingOrder.amount_paid || 0).toFixed(2)}</strong></span>
+                <span>Saldo: <strong className="text-warning">S/{((payingOrder.cost || 0) - (payingOrder.amount_paid || 0)).toFixed(2)}</strong></span>
+              </div>
+              {(payingOrder.amount_paid || 0) > 0 && payingOrder.cost != null && payingOrder.cost > 0 && (
+                <div className="mt-2">
+                  <div className="h-1.5 bg-border/50 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-success rounded-full"
+                      style={{ width: `${Math.min(100, ((payingOrder.amount_paid || 0) / payingOrder.cost) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Monto (S/) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={(payingOrder.cost || 0) - (payingOrder.amount_paid || 0)}
+                  className={inputClass}
+                  value={payForm.amount}
+                  onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                  placeholder={((payingOrder.cost || 0) - (payingOrder.amount_paid || 0)).toFixed(2)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Fecha de Pago *</label>
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={payForm.payment_date}
+                  onChange={(e) => setPayForm({ ...payForm, payment_date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Método de Pago</label>
+              <select
+                className={inputClass}
+                value={payForm.payment_method}
+                onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value })}
+              >
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Notas</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={payForm.notes}
+                onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })}
+                placeholder="Nota del pago (opcional)"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button variant="tertiary" size="md" onClick={() => setShowPaymentModal(false)}>
+                Cancelar
+              </Button>
+              <Button variant="primary" size="md" onClick={handleRegisterPayment} disabled={saving}>
+                <DollarSign className="w-4 h-4 mr-1.5" />
+                {saving ? "Procesando..." : "Registrar Pago"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Detail Modal */}
       <Modal
         open={showDetailModal}
@@ -925,6 +1080,18 @@ export function Laboratory() {
                     : "—"}
                 </p>
               </div>
+              {selectedOrder.cost != null && selectedOrder.cost > 0 && (
+                <div>
+                  <p className="text-[0.75rem] font-medium text-foreground-secondary mb-0.5">
+                    Pagado / Saldo
+                  </p>
+                  <p className="text-[0.875rem] text-foreground">
+                    <span className="text-success font-semibold">S/{(selectedOrder.amount_paid || 0).toLocaleString()}</span>
+                    {" / "}
+                    <span className="text-warning font-semibold">S/{(selectedOrder.cost - (selectedOrder.amount_paid || 0)).toLocaleString()}</span>
+                  </p>
+                </div>
+              )}
               <div>
                 <p className="text-[0.75rem] font-medium text-foreground-secondary mb-0.5">
                   Fecha de Pedido
@@ -959,6 +1126,66 @@ export function Laboratory() {
                   Notas
                 </p>
                 <p className="text-[0.875rem] text-foreground">{selectedOrder.notes}</p>
+              </div>
+            )}
+
+            {/* Payment progress */}
+            {selectedOrder.cost != null && selectedOrder.cost > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[0.75rem] font-medium text-foreground-secondary">
+                    Progreso de Pago
+                  </p>
+                  <span className="text-[0.75rem] font-medium text-foreground">
+                    {Math.round(((selectedOrder.amount_paid || 0) / selectedOrder.cost) * 100)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-border/50 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-success rounded-full transition-all"
+                    style={{ width: `${Math.min(100, ((selectedOrder.amount_paid || 0) / selectedOrder.cost) * 100)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1 text-[0.6875rem] text-foreground-secondary">
+                  <span>Pagado: S/{(selectedOrder.amount_paid || 0).toLocaleString()}</span>
+                  <span>Total: S/{selectedOrder.cost.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Payment history */}
+            {payments.length > 0 && (
+              <div>
+                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">
+                  Historial de Pagos
+                </p>
+                <div className="space-y-2">
+                  {payments.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between p-2.5 bg-surface-alt rounded-[10px]">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[0.875rem] font-semibold text-success">
+                            S/{p.amount.toLocaleString()}
+                          </span>
+                          <Badge variant="default">{p.payment_method}</Badge>
+                        </div>
+                        <p className="text-[0.6875rem] text-foreground-secondary mt-0.5">
+                          {formatDate(p.payment_date)}
+                          {p.notes && ` — ${p.notes}`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeletePayment(p.id, p.lab_order_id, p.amount)}
+                        className="text-danger hover:text-danger hover:bg-danger/10 flex-shrink-0"
+                        disabled={saving}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1009,15 +1236,18 @@ export function Laboratory() {
                 </Button>
               </div>
               <div className="flex items-center gap-2">
-                {selectedOrder.payment_status !== "paid" && (
+                {selectedOrder.payment_status !== "paid" && selectedOrder.cost != null && selectedOrder.cost > 0 && (
                   <Button
                     variant="primary"
                     size="md"
-                    onClick={() => handleMarkPaid(selectedOrder.id)}
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      openPayment(selectedOrder);
+                    }}
                     disabled={saving}
                   >
                     <DollarSign className="w-4 h-4 mr-1.5" />
-                    {saving ? "Procesando..." : "Marcar como Pagado"}
+                    Registrar Pago
                   </Button>
                 )}
                 {selectedOrder.status !== "received" && (
