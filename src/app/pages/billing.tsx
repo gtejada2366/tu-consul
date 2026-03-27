@@ -93,7 +93,7 @@ export function Billing() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-[1.5rem] md:text-[1.75rem] font-semibold text-foreground">Facturación</h1>
+          <h1 className="text-[1.5rem] md:text-[1.75rem] font-semibold text-foreground">Ingresos</h1>
           <p className="text-[0.875rem] text-foreground-secondary mt-1">Gestiona cobros y facturas</p>
         </div>
         <div className="flex items-center gap-3">

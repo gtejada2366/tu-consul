@@ -23,7 +23,7 @@ const navigation = [
   { name: "Pacientes", href: "/pacientes", icon: Users },
   { name: "Laboratorio", href: "/laboratorio", icon: FlaskConical },
   { name: "Campañas", href: "/campanas", icon: MessageCircle },
-  { name: "Facturación", href: "/facturacion", icon: CreditCard },
+  { name: "Ingresos", href: "/facturacion", icon: CreditCard },
   { name: "Comprobantes", href: "/comprobantes", icon: FileCheck },
   { name: "Reportes", href: "/reportes", icon: BarChart3 },
   { name: "Configuración", href: "/configuracion", icon: Settings },
