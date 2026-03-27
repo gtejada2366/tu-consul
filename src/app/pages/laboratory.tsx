@@ -14,6 +14,8 @@ import {
   Package,
   CheckCircle,
   Eye,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { useLabOrders, useLabOrderMutations } from "../hooks/use-lab-orders";
 import { usePatients } from "../hooks/use-patients";
@@ -52,7 +54,7 @@ const emptyForm = {
 
 export function Laboratory() {
   const { orders, loading, totalCost, pendingPayment, pendingCount, refetch } = useLabOrders();
-  const { createLabOrder, markAsPaid, markAsReceived, updateLabOrder } = useLabOrderMutations();
+  const { createLabOrder, markAsPaid, markAsReceived, updateLabOrder, deleteLabOrder } = useLabOrderMutations();
   const { patients } = usePatients();
   const { doctors } = useDoctors();
 
@@ -62,9 +64,13 @@ export function Laboratory() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<LabOrderWithRelations | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<LabOrderWithRelations | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [editForm, setEditForm] = useState(emptyForm);
 
   const filtered = useMemo(() => orders.filter((o) => {
     const patientName = o.patient?.full_name || "";
@@ -159,6 +165,75 @@ export function Laboratory() {
   function openDetail(order: LabOrderWithRelations) {
     setSelectedOrder(order);
     setShowDetailModal(true);
+  }
+
+  function openEdit(order: LabOrderWithRelations) {
+    setEditForm({
+      patient_id: order.patient_id,
+      doctor_id: order.doctor_id || "",
+      lab_name: order.lab_name,
+      item_description: order.item_description,
+      teeth: order.teeth || "",
+      material: order.material || "",
+      shade: order.shade || "",
+      due_date: order.due_date || "",
+      cost: order.cost != null ? String(order.cost) : "",
+      notes: order.notes || "",
+    });
+    setSelectedOrder(order);
+    setShowEditModal(true);
+    setShowDetailModal(false);
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedOrder) return;
+    if (!editForm.patient_id || !editForm.lab_name.trim() || !editForm.item_description.trim()) {
+      toast.error("Paciente, laboratorio y descripción son obligatorios");
+      return;
+    }
+    setSaving(true);
+    const { error } = await updateLabOrder(selectedOrder.id, {
+      patient_id: editForm.patient_id,
+      doctor_id: editForm.doctor_id || null,
+      lab_name: editForm.lab_name.trim(),
+      item_description: editForm.item_description.trim(),
+      teeth: editForm.teeth.trim() || null,
+      material: editForm.material || null,
+      shade: editForm.shade.trim() || null,
+      due_date: editForm.due_date || null,
+      cost: editForm.cost && !isNaN(parseFloat(editForm.cost)) && parseFloat(editForm.cost) > 0 ? parseFloat(editForm.cost) : null,
+      notes: editForm.notes.trim() || null,
+    });
+    setSaving(false);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success("Pedido actualizado");
+      setShowEditModal(false);
+      refetch();
+    }
+  }
+
+  function confirmDelete(order: LabOrderWithRelations) {
+    setOrderToDelete(order);
+    setShowDeleteConfirm(true);
+    setShowDetailModal(false);
+  }
+
+  async function handleDelete() {
+    if (!orderToDelete) return;
+    setSaving(true);
+    const { error } = await deleteLabOrder(orderToDelete.id);
+    setSaving(false);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success("Pedido eliminado");
+      setShowDeleteConfirm(false);
+      setOrderToDelete(null);
+      refetch();
+    }
   }
 
   return (
@@ -375,6 +450,21 @@ export function Laboratory() {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(order)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => confirmDelete(order)}
+                              className="text-danger hover:text-danger hover:bg-danger/10"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                             {order.payment_status !== "paid" && (
                               <Button
                                 variant="primary"
@@ -563,6 +653,193 @@ export function Laboratory() {
         </form>
       </Modal>
 
+      {/* Edit Modal */}
+      <Modal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Editar Pedido de Laboratorio"
+        size="lg"
+      >
+        <form onSubmit={handleEdit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Paciente *</label>
+              <SearchableSelect
+                placeholder="Seleccionar paciente"
+                options={patients
+                  .filter((p) => p.status === "active")
+                  .map((p) => ({ value: p.id, label: p.full_name }))}
+                value={editForm.patient_id}
+                onChange={(v) => setEditForm({ ...editForm, patient_id: v })}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Doctor</label>
+              <SearchableSelect
+                placeholder="Seleccionar doctor"
+                options={doctors.map((d) => ({ value: d.id, label: d.full_name }))}
+                value={editForm.doctor_id}
+                onChange={(v) => setEditForm({ ...editForm, doctor_id: v })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Laboratorio *</label>
+            <input
+              type="text"
+              className={inputClass}
+              value={editForm.lab_name}
+              onChange={(e) => setEditForm({ ...editForm, lab_name: e.target.value })}
+              placeholder="Nombre del laboratorio dental"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Item / Trabajo *</label>
+              <select
+                className={inputClass}
+                value={editForm.item_description}
+                onChange={(e) => setEditForm({ ...editForm, item_description: e.target.value })}
+              >
+                <option value="">Seleccionar</option>
+                {LAB_ITEMS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Pieza(s) Dental(es)</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={editForm.teeth}
+                onChange={(e) => setEditForm({ ...editForm, teeth: e.target.value })}
+                placeholder="Ej: 1.1, 2.3"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>Material</label>
+              <select
+                className={inputClass}
+                value={editForm.material}
+                onChange={(e) => setEditForm({ ...editForm, material: e.target.value })}
+              >
+                <option value="">Seleccionar</option>
+                {LAB_MATERIALS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Color / Shade</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={editForm.shade}
+                onChange={(e) => setEditForm({ ...editForm, shade: e.target.value })}
+                placeholder="Ej: A2, B1"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Costo (S/)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className={inputClass}
+                value={editForm.cost}
+                onChange={(e) => setEditForm({ ...editForm, cost: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Fecha de Entrega Estimada</label>
+            <input
+              type="date"
+              className={inputClass}
+              value={editForm.due_date}
+              onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Notas</label>
+            <textarea
+              className={textareaClass}
+              value={editForm.notes}
+              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              placeholder="Indicaciones especiales para el laboratorio"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              variant="tertiary"
+              size="md"
+              onClick={() => setShowEditModal(false)}
+              type="button"
+            >
+              Cancelar
+            </Button>
+            <Button variant="primary" size="md" type="submit" disabled={saving}>
+              {saving ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Eliminar Pedido"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-[0.875rem] text-foreground-secondary">
+            ¿Estás seguro de que deseas eliminar este pedido de laboratorio?
+            {orderToDelete && (
+              <span className="block mt-2 font-medium text-foreground">
+                {orderToDelete.item_description} — {orderToDelete.patient?.full_name || "Sin paciente"}
+              </span>
+            )}
+          </p>
+          <p className="text-[0.8125rem] text-danger">
+            Esta acción no se puede deshacer.
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              variant="tertiary"
+              size="md"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleDelete}
+              disabled={saving}
+              className="bg-danger hover:bg-danger/90 text-white"
+            >
+              <Trash2 className="w-4 h-4 mr-1.5" />
+              {saving ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Detail Modal */}
       <Modal
         open={showDetailModal}
@@ -711,29 +988,50 @@ export function Laboratory() {
             )}
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-border">
-              {selectedOrder.payment_status !== "paid" && (
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={() => handleMarkPaid(selectedOrder.id)}
-                  disabled={saving}
-                >
-                  <DollarSign className="w-4 h-4 mr-1.5" />
-                  {saving ? "Procesando..." : "Marcar como Pagado"}
-                </Button>
-              )}
-              {selectedOrder.status !== "received" && (
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="tertiary"
                   size="md"
-                  onClick={() => handleMarkReceived(selectedOrder.id)}
-                  disabled={saving}
+                  onClick={() => openEdit(selectedOrder)}
                 >
-                  <CheckCircle className="w-4 h-4 mr-1.5" />
-                  Marcar como Recibido
+                  <Pencil className="w-4 h-4 mr-1.5" />
+                  Editar
                 </Button>
-              )}
+                <Button
+                  variant="tertiary"
+                  size="md"
+                  onClick={() => confirmDelete(selectedOrder)}
+                  className="text-danger hover:text-danger hover:bg-danger/10"
+                >
+                  <Trash2 className="w-4 h-4 mr-1.5" />
+                  Eliminar
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                {selectedOrder.payment_status !== "paid" && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => handleMarkPaid(selectedOrder.id)}
+                    disabled={saving}
+                  >
+                    <DollarSign className="w-4 h-4 mr-1.5" />
+                    {saving ? "Procesando..." : "Marcar como Pagado"}
+                  </Button>
+                )}
+                {selectedOrder.status !== "received" && (
+                  <Button
+                    variant="tertiary"
+                    size="md"
+                    onClick={() => handleMarkReceived(selectedOrder.id)}
+                    disabled={saving}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-1.5" />
+                    Marcar como Recibido
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}
