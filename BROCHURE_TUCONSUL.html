@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tu Consul — Brochure</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --blue: #2563EB;
+    --blue-dark: #1E40AF;
+    --blue-darker: #1E3A5F;
+    --blue-light: #EFF6FF;
+    --blue-100: #DBEAFE;
+    --green: #16A34A;
+    --green-light: #F0FDF4;
+    --amber: #D97706;
+    --amber-light: #FFFBEB;
+    --slate-900: #0F172A;
+    --slate-700: #334155;
+    --slate-500: #64748B;
+    --slate-300: #CBD5E1;
+    --slate-100: #F1F5F9;
+    --white: #FFFFFF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: var(--slate-900);
+    line-height: 1.5;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    background: var(--white);
+  }
+
+  /* ==================== PAGE 1: COVER ==================== */
+  .cover {
+    background: linear-gradient(135deg, #1E40AF 0%, #2563EB 40%, #3B82F6 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: var(--white);
+    padding: 60px 50px;
+    position: relative;
+  }
+
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -120px;
+    right: -120px;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+  }
+
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -80px;
+    left: -80px;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+
+  .cover-logo {
+    width: 80px;
+    height: 80px;
+    background: var(--white);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--blue);
+    margin-bottom: 32px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+
+  .cover-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(4px);
+    padding: 8px 24px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin-bottom: 28px;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .cover h1 {
+    font-size: 44px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 20px;
+    max-width: 560px;
+  }
+
+  .cover-subtitle {
+    font-size: 18px;
+    font-weight: 300;
+    opacity: 0.9;
+    max-width: 480px;
+    line-height: 1.6;
+    margin-bottom: 48px;
+  }
+
+  .cover-stats {
+    display: flex;
+    gap: 48px;
+    margin-bottom: 48px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cover-stat {
+    text-align: center;
+  }
+
+  .cover-stat-number {
+    font-size: 36px;
+    font-weight: 800;
+    display: block;
+    line-height: 1;
+  }
+
+  .cover-stat-label {
+    font-size: 12px;
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 6px;
+  }
+
+  .cover-url {
+    position: absolute;
+    bottom: 40px;
+    font-size: 16px;
+    font-weight: 500;
+    opacity: 0.8;
+    letter-spacing: 0.5px;
+  }
+
+  .cover-tooth {
+    position: absolute;
+    font-size: 180px;
+    opacity: 0.04;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  /* ==================== PAGE 2: PAIN POINTS + SOLUTION ==================== */
+  .pain-page {
+    padding: 50px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .page-header-tag {
+    display: inline-block;
+    background: var(--blue-light);
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 6px 16px;
+    border-radius: 50px;
+    margin-bottom: 16px;
+  }
+
+  .page-header h2 {
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--slate-900);
+    line-height: 1.2;
+  }
+
+  .page-header p {
+    color: var(--slate-500);
+    font-size: 15px;
+    margin-top: 8px;
+  }
+
+  .pain-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .pain-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    padding: 22px;
+    background: var(--slate-100);
+    border-radius: 14px;
+    border-left: 4px solid #DC2626;
+  }
+
+  .pain-icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    background: #FEE2E2;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+  }
+
+  .pain-card h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin-bottom: 4px;
+  }
+
+  .pain-card p {
+    font-size: 13px;
+    color: var(--slate-500);
+    line-height: 1.5;
+  }
+
+  .solution-intro {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .solution-intro h3 {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--blue);
+    margin-bottom: 8px;
+  }
+
+  .solution-intro p {
+    font-size: 14px;
+    color: var(--slate-500);
+  }
+
+  .solution-pillars {
+    display: flex;
+    gap: 16px;
+  }
+
+  .solution-pillar {
+    flex: 1;
+    text-align: center;
+    padding: 28px 16px;
+    background: var(--blue-light);
+    border-radius: 16px;
+    border: 1px solid var(--blue-100);
+  }
+
+  .pillar-icon {
+    width: 52px;
+    height: 52px;
+    background: var(--blue);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin: 0 auto 14px auto;
+    color: var(--white);
+  }
+
+  .solution-pillar h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin-bottom: 6px;
+  }
+
+  .solution-pillar p {
+    font-size: 12px;
+    color: var(--slate-500);
+    line-height: 1.5;
+  }
+
+  .page-footer {
+    margin-top: auto;
+    padding-top: 20px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--slate-300);
+  }
+
+  /* ==================== PAGE 3: FEATURES ==================== */
+  .features-page {
+    padding: 50px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 32px;
+  }
+
+  .feature-card {
+    padding: 22px;
+    border-radius: 14px;
+    border: 1px solid #E2E8F0;
+    background: var(--white);
+    transition: all 0.2s;
+  }
+
+  .feature-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 14px;
+  }
+
+  .fc-blue { background: var(--blue-light); }
+  .fc-green { background: var(--green-light); }
+  .fc-amber { background: var(--amber-light); }
+  .fc-purple { background: #F5F3FF; }
+
+  .feature-card h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin-bottom: 6px;
+  }
+
+  .feature-card p {
+    font-size: 12px;
+    color: var(--slate-500);
+    line-height: 1.55;
+  }
+
+  .feature-highlight {
+    background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%);
+    border-radius: 16px;
+    padding: 28px 32px;
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+
+  .feature-highlight-text {
+    flex: 1;
+  }
+
+  .feature-highlight h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .feature-highlight p {
+    font-size: 13px;
+    opacity: 0.85;
+    line-height: 1.55;
+  }
+
+  .feature-highlight-icon {
+    font-size: 56px;
+    opacity: 0.3;
+  }
+
+  /* ==================== PAGE 4: MORE FEATURES + ODONTOGRAM ==================== */
+  .more-features-page {
+    padding: 50px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .module-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .module-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--slate-100);
+    border-radius: 12px;
+  }
+
+  .module-number {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    background: var(--blue);
+    color: var(--white);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .module-item-text h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--slate-900);
+  }
+
+  .module-item-text p {
+    font-size: 12px;
+    color: var(--slate-500);
+  }
+
+  .odontogram-section {
+    background: var(--blue-light);
+    border-radius: 16px;
+    padding: 28px;
+    border: 1px solid var(--blue-100);
+    text-align: center;
+  }
+
+  .odontogram-section h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--blue-dark);
+    margin-bottom: 8px;
+  }
+
+  .odontogram-section p {
+    font-size: 13px;
+    color: var(--slate-500);
+    margin-bottom: 20px;
+  }
+
+  .odontogram-features {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .odonto-feat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--slate-700);
+  }
+
+  .odonto-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .tooth-grid {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+
+  .tooth {
+    width: 22px;
+    height: 28px;
+    border-radius: 4px 4px 6px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: 600;
+    color: var(--white);
+  }
+
+  /* ==================== PAGE 5: CTA / CONTACT ==================== */
+  .cta-page {
+    padding: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .why-section {
+    margin-bottom: 32px;
+  }
+
+  .why-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .why-card {
+    padding: 22px;
+    background: var(--slate-100);
+    border-radius: 14px;
+    text-align: center;
+  }
+
+  .why-card-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+  }
+
+  .why-card h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin-bottom: 4px;
+  }
+
+  .why-card p {
+    font-size: 12px;
+    color: var(--slate-500);
+    line-height: 1.5;
+  }
+
+  .steps-section {
+    margin-bottom: 32px;
+  }
+
+  .steps {
+    display: flex;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .step {
+    flex: 1;
+    text-align: center;
+    padding: 24px 16px;
+    background: var(--blue-light);
+    border-radius: 14px;
+    position: relative;
+  }
+
+  .step-number {
+    width: 36px;
+    height: 36px;
+    background: var(--blue);
+    color: var(--white);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    margin: 0 auto 12px auto;
+  }
+
+  .step h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin-bottom: 4px;
+  }
+
+  .step p {
+    font-size: 11px;
+    color: var(--slate-500);
+  }
+
+  .step-arrow {
+    position: absolute;
+    right: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: var(--blue);
+    z-index: 1;
+  }
+
+  .final-cta {
+    background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue) 100%);
+    border-radius: 20px;
+    padding: 40px;
+    color: var(--white);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .final-cta::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .final-cta h2 {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 10px;
+  }
+
+  .final-cta p {
+    font-size: 15px;
+    opacity: 0.85;
+    margin-bottom: 24px;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .final-cta-url {
+    display: inline-block;
+    background: var(--white);
+    color: var(--blue);
+    padding: 14px 40px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: none;
+    margin-bottom: 16px;
+  }
+
+  .final-cta-note {
+    font-size: 12px;
+    opacity: 0.6;
+  }
+
+  .footer-brand {
+    margin-top: auto;
+    padding-top: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #E2E8F0;
+  }
+
+  .footer-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .footer-logo-box {
+    width: 32px;
+    height: 32px;
+    background: var(--blue);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .footer-logo-text {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--slate-900);
+  }
+
+  .footer-info {
+    text-align: right;
+    font-size: 11px;
+    color: var(--slate-500);
+  }
+
+  @media print {
+    body { margin: 0; }
+    .page {
+      page-break-after: always;
+      margin: 0;
+      box-shadow: none;
+    }
+  }
+
+  @media screen {
+    body {
+      background: #E5E7EB;
+      padding: 20px 0;
+    }
+    .page {
+      box-shadow: 0 4px 40px rgba(0,0,0,0.12);
+      margin-bottom: 20px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================== PAGE 1: COVER ======================== -->
+<div class="page cover">
+  <div class="cover-tooth">&#x1F9B7;</div>
+  <div class="cover-logo">TC</div>
+  <div class="cover-badge">Software #1 para clínicas dentales en Perú</div>
+  <h1>Factura más y pierde menos pacientes</h1>
+  <p class="cover-subtitle">
+    Agenda inteligente, facturación SUNAT integrada y reservas online.
+    Todo lo que tu clínica dental necesita en un solo lugar.
+  </p>
+  <div class="cover-stats">
+    <div class="cover-stat">
+      <span class="cover-stat-number">15+</span>
+      <div class="cover-stat-label">Módulos</div>
+    </div>
+    <div class="cover-stat">
+      <span class="cover-stat-number">100%</span>
+      <div class="cover-stat-label">En la nube</div>
+    </div>
+    <div class="cover-stat">
+      <span class="cover-stat-number">3 min</span>
+      <div class="cover-stat-label">Para configurar</div>
+    </div>
+  </div>
+  <div class="cover-url">tuconsul.vercel.app</div>
+</div>
+
+<!-- ======================== PAGE 2: PAIN POINTS ======================== -->
+<div class="page pain-page">
+  <div class="page-header">
+    <div class="page-header-tag">El Problema</div>
+    <h2>Tu clínica podría estar perdiendo<br>dinero sin saberlo</h2>
+  </div>
+
+  <div class="pain-cards">
+    <div class="pain-card">
+      <div class="pain-icon">&#x1F4CB;</div>
+      <div>
+        <h3>Agendas en papel o Excel</h3>
+        <p>Citas que se cruzan, horarios que no cuadran, y no sabes qué doctor tiene más disponibilidad. Cada error es un paciente que se va.</p>
+      </div>
+    </div>
+    <div class="pain-card">
+      <div class="pain-icon">&#x1F6AB;</div>
+      <div>
+        <h3>30% de pacientes no llegan a su cita</h3>
+        <p>Sin recordatorios automáticos, pierdes ingresos cada día. Un sillón vacío es dinero que no recuperas.</p>
+      </div>
+    </div>
+    <div class="pain-card">
+      <div class="pain-icon">&#x1F4C4;</div>
+      <div>
+        <h3>SUNAT es un dolor de cabeza</h3>
+        <p>Facturación electrónica obligatoria, pero tu sistema no lo tiene. Emitir boletas y facturas te quita tiempo valioso de atención.</p>
+      </div>
+    </div>
+    <div class="pain-card">
+      <div class="pain-icon">&#x1F4CA;</div>
+      <div>
+        <h3>No sabes cuánto produce cada doctor</h3>
+        <p>Sin reportes claros, no puedes tomar decisiones informadas sobre tu negocio. Gestionas a ciegas.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="solution-intro">
+    <h3>La solución: todo en un solo sistema</h3>
+    <p>Tu Consul integra las 3 herramientas clave que toda clínica necesita</p>
+  </div>
+
+  <div class="solution-pillars">
+    <div class="solution-pillar">
+      <div class="pillar-icon">&#x1F4C5;</div>
+      <h4>Agenda Inteligente</h4>
+      <p>Multi-doctor, vista diaria/semanal, drag &amp; drop, indicadores en tiempo real</p>
+    </div>
+    <div class="solution-pillar">
+      <div class="pillar-icon">&#x1F4B0;</div>
+      <h4>Facturación SUNAT</h4>
+      <p>Boletas y facturas electrónicas integradas. Cumple con la ley sin salir del sistema</p>
+    </div>
+    <div class="solution-pillar">
+      <div class="pillar-icon">&#x1F4F1;</div>
+      <h4>Reservas Online</h4>
+      <p>Tus pacientes reservan 24/7 desde un link. Sin llamadas, sin WhatsApp manual</p>
+    </div>
+  </div>
+
+  <div class="page-footer">Tu Consul &mdash; tuconsul.vercel.app &mdash; Página 2</div>
+</div>
+
+<!-- ======================== PAGE 3: FEATURES ======================== -->
+<div class="page features-page">
+  <div class="page-header">
+    <div class="page-header-tag">Funcionalidades</div>
+    <h2>Todo lo que necesitas para gestionar<br>tu clínica dental</h2>
+  </div>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-card-icon fc-blue">&#x1F4C5;</div>
+      <h4>Agenda Inteligente</h4>
+      <p>Vista diaria y semanal. Arrastra citas entre horarios. KPIs del día: citas, atendidos, ingresos. Multi-doctor con filtros.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon fc-green">&#x1F310;</div>
+      <h4>Reservas Online 24/7</h4>
+      <p>Link exclusivo de tu clínica. Pacientes eligen doctor, fecha y hora. Solo ve horarios disponibles. Sin crear cuenta.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon fc-amber">&#x1F4B3;</div>
+      <h4>Facturación y Cobranza</h4>
+      <p>Registro de cobros por servicio. Estados: pagado, pendiente, vencido. Métodos de pago. Resumen financiero con exportación CSV.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon fc-purple">&#x1F4AC;</div>
+      <h4>Campañas WhatsApp</h4>
+      <p>Plantillas de recordatorio, promoción y reactivación. Personaliza con nombre del paciente. Segmenta por interés.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon fc-blue">&#x1F465;</div>
+      <h4>Base de Pacientes Completa</h4>
+      <p>10 pestañas: datos personales, antecedentes médicos y dentales, seguro, citas, historia clínica, odontograma, marketing, plan de tratamiento.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon fc-green">&#x1F4CA;</div>
+      <h4>Reportes Financieros</h4>
+      <p>Gráficos de ingresos por mes, por servicio, por doctor. Tasa de cobranza. Filtro por período. Toma decisiones con datos.</p>
+    </div>
+  </div>
+
+  <div class="feature-highlight">
+    <div class="feature-highlight-text">
+      <h3>&#x2705; Facturación Electrónica SUNAT Integrada</h3>
+      <p>Emite boletas y facturas electrónicas directamente desde el sistema. Configura tu RUC, certificado digital y series. Cumple con la normativa sin apps externas. Es el único software dental en Perú con SUNAT integrado.</p>
+    </div>
+    <div class="feature-highlight-icon">&#x1F4DC;</div>
+  </div>
+
+  <div class="page-footer">Tu Consul &mdash; tuconsul.vercel.app &mdash; Página 3</div>
+</div>
+
+<!-- ======================== PAGE 4: MORE FEATURES ======================== -->
+<div class="page more-features-page">
+  <div class="page-header">
+    <div class="page-header-tag">Más módulos</div>
+    <h2>Una plataforma completa<br>para toda tu clínica</h2>
+  </div>
+
+  <div class="module-list">
+    <div class="module-item">
+      <div class="module-number">&#x1F9B7;</div>
+      <div class="module-item-text">
+        <h4>Odontograma Interactivo</h4>
+        <p>Diagrama de 32 piezas dentales. Registra condiciones por diente con código de colores. Historial completo.</p>
+      </div>
+    </div>
+    <div class="module-item">
+      <div class="module-number">&#x1F4CB;</div>
+      <div class="module-item-text">
+        <h4>Historia Clínica Digital</h4>
+        <p>Consultas con signos vitales, recetas con dosis, resultados de laboratorio. Exportable a CSV.</p>
+      </div>
+    </div>
+    <div class="module-item">
+      <div class="module-number">&#x1F9EA;</div>
+      <div class="module-item-text">
+        <h4>Gestión de Laboratorio</h4>
+        <p>Ordenes a laboratorios externos. Seguimiento de estado, fechas de entrega y pagos. Alertas de vencimiento.</p>
+      </div>
+    </div>
+    <div class="module-item">
+      <div class="module-number">&#x1F468;&#x200D;&#x2695;&#xFE0F;</div>
+      <div class="module-item-text">
+        <h4>Directorio de Doctores</h4>
+        <p>Perfil individual con estadísticas, agenda personal, pacientes asignados y productividad.</p>
+      </div>
+    </div>
+    <div class="module-item">
+      <div class="module-number">&#x2699;</div>
+      <div class="module-item-text">
+        <h4>Configuración Completa</h4>
+        <p>Datos de clínica, servicios y precios, sedes, usuarios, horarios, notificaciones, plan, SUNAT. Todo personalizable.</p>
+      </div>
+    </div>
+    <div class="module-item">
+      <div class="module-number">&#x1F512;</div>
+      <div class="module-item-text">
+        <h4>Roles y Permisos</h4>
+        <p>3 roles: Administrador, Doctor, Recepcionista. Cada uno ve solo lo que necesita. Seguridad por defecto.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="odontogram-section">
+    <h3>&#x1F9B7; Odontograma Interactivo</h3>
+    <p>Visualiza el estado dental completo de cada paciente con un diagrama profesional.</p>
+    <div class="tooth-grid">
+      <div class="tooth" style="background:#2563EB">18</div>
+      <div class="tooth" style="background:#2563EB">17</div>
+      <div class="tooth" style="background:#9CA3AF">16</div>
+      <div class="tooth" style="background:#2563EB">15</div>
+      <div class="tooth" style="background:#DC2626">14</div>
+      <div class="tooth" style="background:#2563EB">13</div>
+      <div class="tooth" style="background:#2563EB">12</div>
+      <div class="tooth" style="background:#16A34A">11</div>
+      <div class="tooth" style="background:#16A34A">21</div>
+      <div class="tooth" style="background:#2563EB">22</div>
+      <div class="tooth" style="background:#D97706">23</div>
+      <div class="tooth" style="background:#2563EB">24</div>
+      <div class="tooth" style="background:#2563EB">25</div>
+      <div class="tooth" style="background:#DC2626">26</div>
+      <div class="tooth" style="background:#2563EB">27</div>
+      <div class="tooth" style="background:#2563EB">28</div>
+    </div>
+    <div class="tooth-grid">
+      <div class="tooth" style="background:#2563EB">48</div>
+      <div class="tooth" style="background:#7C3AED">47</div>
+      <div class="tooth" style="background:#2563EB">46</div>
+      <div class="tooth" style="background:#2563EB">45</div>
+      <div class="tooth" style="background:#2563EB">44</div>
+      <div class="tooth" style="background:#D97706">43</div>
+      <div class="tooth" style="background:#2563EB">42</div>
+      <div class="tooth" style="background:#2563EB">41</div>
+      <div class="tooth" style="background:#2563EB">31</div>
+      <div class="tooth" style="background:#2563EB">32</div>
+      <div class="tooth" style="background:#DC2626">33</div>
+      <div class="tooth" style="background:#2563EB">34</div>
+      <div class="tooth" style="background:#2563EB">35</div>
+      <div class="tooth" style="background:#2563EB">36</div>
+      <div class="tooth" style="background:#2563EB">37</div>
+      <div class="tooth" style="background:#9CA3AF">38</div>
+    </div>
+    <div class="odontogram-features">
+      <div class="odonto-feat"><div class="odonto-dot" style="background:#DC2626"></div> Caries</div>
+      <div class="odonto-feat"><div class="odonto-dot" style="background:#2563EB"></div> Obturacion</div>
+      <div class="odonto-feat"><div class="odonto-dot" style="background:#16A34A"></div> Implante</div>
+      <div class="odonto-feat"><div class="odonto-dot" style="background:#D97706"></div> Corona</div>
+      <div class="odonto-feat"><div class="odonto-dot" style="background:#7C3AED"></div> Endodoncia</div>
+      <div class="odonto-feat"><div class="odonto-dot" style="background:#9CA3AF"></div> Ausente</div>
+    </div>
+  </div>
+
+  <div class="page-footer">Tu Consul &mdash; tuconsul.vercel.app &mdash; Página 4</div>
+</div>
+
+<!-- ======================== PAGE 5: CTA + CONTACT ======================== -->
+<div class="page cta-page">
+  <div class="why-section">
+    <div class="page-header">
+      <div class="page-header-tag">Por qué Tu Consul</div>
+      <h2>Diseñado para clínicas<br>dentales en Perú</h2>
+    </div>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="why-card-icon">&#x1F1F5;&#x1F1EA;</div>
+        <h4>Hecho para Perú</h4>
+        <p>SUNAT integrado, soles peruanos, normativa local. No es un software genérico adaptado.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-card-icon">&#x2601;&#xFE0F;</div>
+        <h4>100% en la Nube</h4>
+        <p>Sin instalaciones. Accede desde cualquier dispositivo: computadora, tablet o celular</p>
+      </div>
+      <div class="why-card">
+        <div class="why-card-icon">&#x26A1;</div>
+        <h4>Listo en 3 Minutos</h4>
+        <p>Asistente de bienvenida te guía paso a paso. Configura horarios y servicios al instante.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-card-icon">&#x1F4F1;</div>
+        <h4>Funciona en Celular</h4>
+        <p>Diseño responsive. Tu agenda, pacientes y facturación siempre en tu bolsillo.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps-section">
+    <div class="page-header" style="margin-bottom:0">
+      <h2 style="font-size:22px">Empieza en 3 simples pasos</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h4>Crea tu cuenta</h4>
+        <p>Regístrate gratis.<br>Sin tarjeta de crédito.</p>
+        <div class="step-arrow">&#x2192;</div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h4>Configura tu clínica</h4>
+        <p>Asistente guiado: horarios, servicios, equipo.</p>
+        <div class="step-arrow">&#x2192;</div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h4>Empieza a atender</h4>
+        <p>Agenda citas, factura y crece.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="final-cta">
+    <h2>Empieza hoy. Es gratis.</h2>
+    <p>Únete a las clínicas que ya gestionan sus citas, pacientes y facturación con Tu Consul.</p>
+    <div class="final-cta-url">tuconsul.vercel.app</div>
+    <div class="final-cta-note">Sin tarjeta de crédito &bull; Sin contratos &bull; Soporte incluido</div>
+  </div>
+
+  <div class="footer-brand">
+    <div class="footer-logo">
+      <div class="footer-logo-box">TC</div>
+      <div class="footer-logo-text">Tu Consul</div>
+    </div>
+    <div class="footer-info">
+      &copy; 2026 Tu Consul<br>
+      El sistema que tu clínica dental necesita
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
