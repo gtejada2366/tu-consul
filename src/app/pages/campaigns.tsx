@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Loading } from "../components/ui/loading";
+import { Modal } from "../components/ui/modal";
 import {
   MessageCircle,
   Search,
@@ -10,9 +12,13 @@ import {
   Send,
   Check,
   ExternalLink,
+  Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { usePatients } from "../hooks/use-patients";
-import { labelClass, textareaClass } from "../components/modals/form-classes";
+import { useCampaignTemplates, type CampaignTemplate } from "../hooks/use-campaign-templates";
+import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
 import { INTEREST_TAGS, getTagColor } from "../lib/constants";
 import type { PatientWithStats } from "../lib/types";
 
@@ -84,12 +90,79 @@ function personalizeMessage(template: string, patient: PatientWithStats): string
 
 export function Campaigns() {
   const { patients, loading } = usePatients();
+  const { templates: customTemplates, refetch: refetchTemplates, createTemplate, updateTemplate, deleteTemplate } = useCampaignTemplates();
 
   const [tagFilter, setTagFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [message, setMessage] = useState(MESSAGE_TEMPLATES[0].text);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
+
+  // Template management state
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<CampaignTemplate | null>(null);
+  const [templateForm, setTemplateForm] = useState({ name: "", text: "" });
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [showDeleteTemplateConfirm, setShowDeleteTemplateConfirm] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<CampaignTemplate | null>(null);
+
+  // Merge predefined + custom templates
+  const allTemplates = useMemo(() => [
+    ...MESSAGE_TEMPLATES.map((t, i) => ({ id: `default-${i}`, name: t.name, text: t.text, isCustom: false })),
+    ...customTemplates.map((t) => ({ id: t.id, name: t.name, text: t.text, isCustom: true })),
+  ], [customTemplates]);
+
+  function openNewTemplate() {
+    setEditingTemplate(null);
+    setTemplateForm({ name: "", text: "" });
+    setShowTemplateModal(true);
+  }
+
+  function openEditTemplate(t: CampaignTemplate) {
+    setEditingTemplate(t);
+    setTemplateForm({ name: t.name, text: t.text });
+    setShowTemplateModal(true);
+  }
+
+  async function handleSaveTemplate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!templateForm.name.trim() || !templateForm.text.trim()) {
+      toast.error("Nombre y texto son obligatorios");
+      return;
+    }
+    setSavingTemplate(true);
+    const { error } = editingTemplate
+      ? await updateTemplate(editingTemplate.id, templateForm.name, templateForm.text)
+      : await createTemplate(templateForm.name, templateForm.text);
+    setSavingTemplate(false);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success(editingTemplate ? "Plantilla actualizada" : "Plantilla creada");
+      setShowTemplateModal(false);
+      refetchTemplates();
+    }
+  }
+
+  function confirmDeleteTemplate(t: CampaignTemplate) {
+    setTemplateToDelete(t);
+    setShowDeleteTemplateConfirm(true);
+  }
+
+  async function handleDeleteTemplate() {
+    if (!templateToDelete) return;
+    setSavingTemplate(true);
+    const { error } = await deleteTemplate(templateToDelete.id);
+    setSavingTemplate(false);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success("Plantilla eliminada");
+      setShowDeleteTemplateConfirm(false);
+      setTemplateToDelete(null);
+      refetchTemplates();
+    }
+  }
 
   const activePatients = useMemo(
     () => patients.filter((p) => p.status === "active"),
@@ -223,7 +296,16 @@ export function Campaigns() {
             <Card>
               <CardContent className="p-4 space-y-4">
                 <div>
-                  <label className={labelClass}>Plantilla rápida</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className={labelClass + " !mb-0"}>Plantilla</label>
+                    <button
+                      onClick={openNewTemplate}
+                      className="flex items-center gap-1 text-[0.75rem] font-medium text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Nueva plantilla
+                    </button>
+                  </div>
                   <select
                     className="w-full h-10 px-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150"
                     onChange={(e) => {
@@ -231,13 +313,59 @@ export function Campaigns() {
                     }}
                   >
                     <option value="">Seleccionar plantilla...</option>
-                    {MESSAGE_TEMPLATES.map((t) => (
-                      <option key={t.name} value={t.text}>
-                        {t.name}
-                      </option>
-                    ))}
+                    <optgroup label="Predefinidas">
+                      {MESSAGE_TEMPLATES.map((t) => (
+                        <option key={t.name} value={t.text}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    {customTemplates.length > 0 && (
+                      <optgroup label="Mis plantillas">
+                        {customTemplates.map((t) => (
+                          <option key={t.id} value={t.text}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
+
+                {/* Custom templates list */}
+                {customTemplates.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[0.6875rem] font-medium text-foreground-secondary">Mis plantillas:</p>
+                    {customTemplates.map((t) => (
+                      <div
+                        key={t.id}
+                        className="flex items-center justify-between p-2 rounded-[8px] bg-surface-alt group"
+                      >
+                        <button
+                          className="flex-1 text-left text-[0.8125rem] text-foreground truncate hover:text-primary transition-colors"
+                          onClick={() => setMessage(t.text)}
+                          title={t.text}
+                        >
+                          {t.name}
+                        </button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          <button
+                            onClick={() => openEditTemplate(t)}
+                            className="p-1 rounded hover:bg-surface text-foreground-secondary hover:text-foreground transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => confirmDeleteTemplate(t)}
+                            className="p-1 rounded hover:bg-surface text-foreground-secondary hover:text-danger transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div>
                   <label className={labelClass}>
@@ -468,6 +596,90 @@ export function Campaigns() {
           </div>
         </div>
       )}
+
+      {/* Create/Edit Template Modal */}
+      <Modal
+        open={showTemplateModal}
+        onClose={() => setShowTemplateModal(false)}
+        title={editingTemplate ? "Editar Plantilla" : "Nueva Plantilla"}
+        size="md"
+      >
+        <form onSubmit={handleSaveTemplate} className="space-y-4">
+          <div>
+            <label className={labelClass}>Nombre de la plantilla *</label>
+            <input
+              type="text"
+              className={inputClass}
+              value={templateForm.name}
+              onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+              placeholder="Ej: Promoción de verano"
+            />
+          </div>
+          <div>
+            <label className={labelClass}>
+              Texto del mensaje * (usa {"{nombre}"} para personalizar)
+            </label>
+            <textarea
+              className={textareaClass + " !h-32"}
+              value={templateForm.text}
+              onChange={(e) => setTemplateForm({ ...templateForm, text: e.target.value })}
+              placeholder="Hola {nombre}, ..."
+            />
+          </div>
+          {templateForm.text.trim() && (
+            <div className="p-3 rounded-[10px] bg-surface-alt">
+              <p className="text-[0.75rem] font-medium text-foreground-secondary mb-1">
+                Vista previa:
+              </p>
+              <p className="text-[0.8125rem] text-foreground">
+                {templateForm.text.replace(/\{nombre\}/g, "Juan")}
+              </p>
+            </div>
+          )}
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="tertiary" size="md" onClick={() => setShowTemplateModal(false)} type="button">
+              Cancelar
+            </Button>
+            <Button variant="primary" size="md" type="submit" disabled={savingTemplate}>
+              {savingTemplate ? "Guardando..." : editingTemplate ? "Guardar Cambios" : "Crear Plantilla"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Template Confirmation */}
+      <Modal
+        open={showDeleteTemplateConfirm}
+        onClose={() => setShowDeleteTemplateConfirm(false)}
+        title="Eliminar Plantilla"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-[0.875rem] text-foreground-secondary">
+            ¿Estás seguro de que deseas eliminar esta plantilla?
+            {templateToDelete && (
+              <span className="block mt-2 font-medium text-foreground">
+                {templateToDelete.name}
+              </span>
+            )}
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="tertiary" size="md" onClick={() => setShowDeleteTemplateConfirm(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleDeleteTemplate}
+              disabled={savingTemplate}
+              className="bg-danger hover:bg-danger/90 text-white"
+            >
+              <Trash2 className="w-4 h-4 mr-1.5" />
+              {savingTemplate ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
