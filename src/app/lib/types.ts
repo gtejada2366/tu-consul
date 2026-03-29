@@ -292,6 +292,7 @@ export interface ClinicService {
   min_price: number;
   category: string | null;
   is_active: boolean;
+  requires_lab: boolean;
   created_at: string;
   updated_at: string;
 }

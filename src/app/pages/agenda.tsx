@@ -419,10 +419,48 @@ export function Agenda() {
       } as Record<string, unknown>);
     }
 
+    // 5. Auto-create lab orders for services that require lab work
+    const labLines = validLines.filter(l => {
+      if (!l.service_id) return false;
+      const svc = activeServices.find(s => s.id === l.service_id);
+      return svc?.requires_lab;
+    });
+
+    if (labLines.length > 0) {
+      const labOrders = labLines.map(l => ({
+        clinic_id: clinic.id,
+        patient_id: completionApt.patient_id,
+        doctor_id: completionApt.doctor_id || user?.id,
+        lab_name: "",
+        item_description: l.service_name,
+        teeth: null,
+        material: null,
+        shade: null,
+        order_date: toLocalDateStr(new Date()),
+        due_date: null,
+        status: "ordered",
+        payment_status: "pending",
+        cost: null,
+        amount_paid: 0,
+        notes: `Pedido automático - Cita ${completionApt.date}`,
+      }));
+
+      const { error: labError } = await supabase
+        .from("lab_orders")
+        .insert(labOrders as Record<string, unknown>[]);
+
+      if (labError) {
+        toast.error("Cita completada pero hubo un error al crear pedido(s) de laboratorio");
+      }
+    }
+
     setCompletionSaving(false);
+    const labCount = labLines.length;
     toast.success(paymentTotal > 0
-      ? `Cita completada · Cobro registrado: S/${paymentTotal.toFixed(2)}`
-      : validLines.length > 0 ? "Cita completada con servicios registrados" : "Cita completada"
+      ? `Cita completada · Cobro registrado: S/${paymentTotal.toFixed(2)}${labCount > 0 ? ` · ${labCount} pedido(s) de lab creados` : ""}`
+      : validLines.length > 0
+        ? `Cita completada con servicios registrados${labCount > 0 ? ` · ${labCount} pedido(s) de lab creados` : ""}`
+        : "Cita completada"
     );
     setShowCompletionModal(false);
     setCompletionApt(null);

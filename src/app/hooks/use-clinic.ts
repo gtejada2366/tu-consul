@@ -124,7 +124,7 @@ export function useClinicServices() {
     fetchServices();
   }, [fetchServices]);
 
-  async function createService(data: { name: string; price: number; min_price?: number; category?: string }) {
+  async function createService(data: { name: string; price: number; min_price?: number; category?: string; requires_lab?: boolean }) {
     if (!clinic) return { error: "No hay clínica activa" };
 
     const { error } = await supabase
@@ -135,13 +135,14 @@ export function useClinicServices() {
         price: data.price,
         min_price: data.min_price || 0,
         category: data.category || null,
+        requires_lab: data.requires_lab || false,
         is_active: true,
       } as Record<string, unknown>);
 
     return { error: error?.message || null };
   }
 
-  async function updateService(id: string, data: { name?: string; price?: number; min_price?: number; category?: string }) {
+  async function updateService(id: string, data: { name?: string; price?: number; min_price?: number; category?: string; requires_lab?: boolean }) {
     if (!clinic) return { error: "No hay clínica activa" };
 
     const { error } = await supabase

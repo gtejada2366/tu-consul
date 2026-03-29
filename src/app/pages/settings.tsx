@@ -185,7 +185,7 @@ export function Settings() {
   // Service modal state
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [editingService, setEditingService] = useState<ClinicService | null>(null);
-  const [serviceForm, setServiceForm] = useState({ name: "", price: "", min_price: "", category: "" });
+  const [serviceForm, setServiceForm] = useState({ name: "", price: "", min_price: "", category: "", requires_lab: false });
 
   async function handleSaveClinic() {
     const { error } = await updateClinic({
@@ -246,10 +246,10 @@ export function Settings() {
   function openServiceModal(service?: ClinicService) {
     if (service) {
       setEditingService(service);
-      setServiceForm({ name: service.name, price: String(service.price), min_price: String(service.min_price), category: service.category || "" });
+      setServiceForm({ name: service.name, price: String(service.price), min_price: String(service.min_price), category: service.category || "", requires_lab: service.requires_lab || false });
     } else {
       setEditingService(null);
-      setServiceForm({ name: "", price: "", min_price: "", category: "" });
+      setServiceForm({ name: "", price: "", min_price: "", category: "", requires_lab: false });
     }
     setShowServiceModal(true);
   }
@@ -268,6 +268,7 @@ export function Settings() {
         price,
         min_price: minPrice,
         category: serviceForm.category.trim() || undefined,
+        requires_lab: serviceForm.requires_lab,
       });
       setSaving(false);
       if (error) toast.error("Error al actualizar el servicio");
@@ -278,6 +279,7 @@ export function Settings() {
         price,
         min_price: minPrice,
         category: serviceForm.category.trim() || undefined,
+        requires_lab: serviceForm.requires_lab,
       });
       setSaving(false);
       if (error) toast.error("Error al crear el servicio");
@@ -496,6 +498,7 @@ export function Settings() {
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2">
                                 <span className="text-[0.875rem] font-medium text-foreground">{service.name}</span>
+                                {service.requires_lab && <Badge variant="default">Lab</Badge>}
                                 {!service.is_active && <Badge variant="danger">Inactivo</Badge>}
                               </div>
                             </td>
@@ -951,6 +954,23 @@ export function Settings() {
               <label className={labelClass}>Categoría</label>
               <input className={inputClass} placeholder="Ej: Preventivo" value={serviceForm.category}
                 onChange={e => setServiceForm({ ...serviceForm, category: e.target.value })} />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={serviceForm.requires_lab}
+              onClick={() => setServiceForm({ ...serviceForm, requires_lab: !serviceForm.requires_lab })}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${serviceForm.requires_lab ? "bg-primary" : "bg-border"}`}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${serviceForm.requires_lab ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
+            <div>
+              <label className="text-[0.875rem] font-medium text-foreground cursor-pointer" onClick={() => setServiceForm({ ...serviceForm, requires_lab: !serviceForm.requires_lab })}>
+                Requiere laboratorio
+              </label>
+              <p className="text-[0.75rem] text-foreground-secondary">Se creará un pedido de laboratorio automáticamente al completar una cita con este servicio</p>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
