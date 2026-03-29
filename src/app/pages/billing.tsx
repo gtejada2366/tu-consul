@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Loading } from "../components/ui/loading";
 import { Modal } from "../components/ui/modal";
-import { Plus, Search, Download, DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Calendar } from "lucide-react";
+import { Plus, Search, Download, DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Calendar, X } from "lucide-react";
 import { useInvoices, useInvoiceMutations } from "../hooks/use-invoices";
 import { usePatients } from "../hooks/use-patients";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
@@ -24,6 +24,7 @@ export function Billing() {
   const { patients } = usePatients();
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending" | "overdue">("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateFilter, setDateFilter] = useState(toLocalDateStr(new Date()));
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
@@ -41,8 +42,13 @@ export function Billing() {
     const patientName = bill.patient?.full_name || "";
     const matchesSearch = patientName.toLowerCase().includes(searchTerm.toLowerCase()) || bill.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || bill.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  }), [invoices, searchTerm, statusFilter]);
+    const matchesDate = !dateFilter || bill.date === dateFilter;
+    return matchesSearch && matchesStatus && matchesDate;
+  }), [invoices, searchTerm, statusFilter, dateFilter]);
+
+  const dayRevenue = useMemo(() => filteredBilling.reduce((sum, i) => sum + (i.amount_paid || 0), 0), [filteredBilling]);
+  const dayPending = useMemo(() => filteredBilling.filter(i => i.status !== "paid").reduce((sum, i) => sum + (i.amount - (i.amount_paid || 0)), 0), [filteredBilling]);
+  const dayCollectionRate = useMemo(() => filteredBilling.length > 0 ? Math.round((filteredBilling.filter(i => i.status === "paid").length / filteredBilling.length) * 100) : 0, [filteredBilling]);
 
   async function handleCreateInvoice(e: React.FormEvent) {
     e.preventDefault();
@@ -118,8 +124,9 @@ export function Billing() {
           <div className="p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Ingresos del Mes</p>
-                <p className="text-[1.75rem] font-semibold text-foreground leading-none">S/{totalRevenue.toLocaleString()}</p>
+                <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">{dateFilter ? "Ingresos del Día" : "Ingresos del Mes"}</p>
+                <p className="text-[1.75rem] font-semibold text-foreground leading-none">S/{(dateFilter ? dayRevenue : totalRevenue).toLocaleString()}</p>
+                {dateFilter && <p className="text-[0.75rem] text-foreground-secondary mt-1">{filteredBilling.length} cobro{filteredBilling.length !== 1 ? "s" : ""}</p>}
               </div>
               <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <DollarSign className="w-6 h-6 text-primary" />
@@ -132,8 +139,8 @@ export function Billing() {
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Cobros Pendientes</p>
-                <p className="text-[1.75rem] font-semibold text-foreground leading-none">S/{pendingRevenue.toLocaleString()}</p>
-                <p className="text-[0.75rem] text-foreground-secondary mt-1">{invoices.filter(b => b.status !== "paid").length} facturas</p>
+                <p className="text-[1.75rem] font-semibold text-foreground leading-none">S/{(dateFilter ? dayPending : pendingRevenue).toLocaleString()}</p>
+                <p className="text-[0.75rem] text-foreground-secondary mt-1">{(dateFilter ? filteredBilling : invoices).filter(b => b.status !== "paid").length} facturas</p>
               </div>
               <div className="w-12 h-12 rounded-[10px] bg-warning/10 flex items-center justify-center flex-shrink-0">
                 <Clock className="w-6 h-6 text-warning" />
@@ -146,8 +153,8 @@ export function Billing() {
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[0.75rem] font-medium text-foreground-secondary mb-2">Tasa de Cobro</p>
-                <p className="text-[1.75rem] font-semibold text-foreground leading-none">{collectionRate}%</p>
-                <p className="text-[0.75rem] text-success mt-1">{collectionRate >= 80 ? "Excelente" : collectionRate >= 60 ? "Buena" : "Mejorable"}</p>
+                <p className="text-[1.75rem] font-semibold text-foreground leading-none">{(dateFilter ? dayCollectionRate : collectionRate)}%</p>
+                <p className="text-[0.75rem] text-success mt-1">{(dateFilter ? dayCollectionRate : collectionRate) >= 80 ? "Excelente" : (dateFilter ? dayCollectionRate : collectionRate) >= 60 ? "Buena" : "Mejorable"}</p>
               </div>
               <div className="w-12 h-12 rounded-[10px] bg-success/10 flex items-center justify-center flex-shrink-0">
                 <TrendingUp className="w-6 h-6 text-success" />
@@ -164,6 +171,20 @@ export function Billing() {
             <input type="text" placeholder="Buscar factura por paciente o número..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
               aria-label="Buscar facturas"
               className="w-full h-10 pl-10 pr-4 bg-surface-alt border border-border rounded-[10px] text-[0.875rem] text-foreground placeholder:text-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary pointer-events-none" />
+              <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+                className="h-10 pl-10 pr-3 bg-surface-alt border border-border rounded-[10px] text-[0.8125rem] text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-150" />
+            </div>
+            {dateFilter && (
+              <button onClick={() => setDateFilter("")}
+                className="h-10 px-3 text-[0.8125rem] font-medium rounded-[10px] bg-surface-alt text-foreground-secondary hover:text-foreground transition-all"
+                title="Ver todo">
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-1.5">
             {(["all","paid","pending","overdue"] as const).map(s => (
