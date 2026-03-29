@@ -93,6 +93,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         <ul className="space-y-1 px-3">
           {navigation.filter(item => {
             if (item.href === "/doctores" && user?.role === "doctor") return false;
+            if ((item.href === "/laboratorio" || item.href === "/campanas") && user?.role === "doctor") return false;
             if ((item.href === "/facturacion" || item.href === "/comprobantes" || item.href === "/reportes") && user?.role !== "admin") return false;
             return true;
           }).map((item) => {
