@@ -121,5 +121,23 @@ export function useInvoiceMutations() {
     return { error: error?.message || null };
   }
 
-  return { createInvoice, markAsPaid, registerPayment };
+  async function revertPayment(id: string) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    const { error } = await supabase
+      .from("invoices")
+      .update({
+        amount_paid: 0,
+        status: "pending",
+        payment_method: null,
+        paid_at: null,
+        updated_at: new Date().toISOString(),
+      } as Record<string, unknown>)
+      .eq("id", id)
+      .eq("clinic_id", clinic.id);
+
+    return { error: error?.message || null };
+  }
+
+  return { createInvoice, markAsPaid, registerPayment, revertPayment };
 }

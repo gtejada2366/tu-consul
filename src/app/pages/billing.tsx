@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Loading } from "../components/ui/loading";
 import { Modal } from "../components/ui/modal";
-import { Plus, Search, Download, DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Calendar, X } from "lucide-react";
+import { Plus, Search, Download, DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Calendar, X, Undo2 } from "lucide-react";
 import { useInvoices, useInvoiceMutations } from "../hooks/use-invoices";
 import { usePatients } from "../hooks/use-patients";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
@@ -20,7 +20,7 @@ const statusConfig = {
 
 export function Billing() {
   const { invoices, loading, totalRevenue, pendingRevenue, collectionRate, refetch } = useInvoices();
-  const { createInvoice, registerPayment } = useInvoiceMutations();
+  const { createInvoice, registerPayment, revertPayment } = useInvoiceMutations();
   const { patients } = usePatients();
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending" | "overdue">("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -244,6 +244,16 @@ export function Billing() {
                         <div className="flex items-center gap-2">
                           {bill.status !== "paid" && (
                             <Button variant="primary" size="sm" onClick={() => openPayModal(bill.id, patientName, bill.amount, bill.amount_paid || 0)}>Cobrar</Button>
+                          )}
+                          {(bill.amount_paid || 0) > 0 && (
+                            <Button variant="tertiary" size="sm" onClick={async () => {
+                              if (!confirm(`¿Revertir el pago de S/${(bill.amount_paid || 0).toFixed(2)} para ${patientName}? El cobro volverá a estado pendiente.`)) return;
+                              const { error } = await revertPayment(bill.id);
+                              if (error) toast.error(error);
+                              else { toast.success("Pago revertido"); refetch(); }
+                            }} title="Revertir pago">
+                              <Undo2 className="w-4 h-4" />
+                            </Button>
                           )}
                         </div>
                       </td>
