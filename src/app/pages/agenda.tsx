@@ -14,7 +14,7 @@ import {
 import { useAppointments, useWeekAppointments, useAppointmentMutations } from "../hooks/use-appointments";
 import { useDashboard } from "../hooks/use-dashboard";
 import { usePatients } from "../hooks/use-patients";
-import { useClinicUsers, useClinicSchedules, useClinicServices } from "../hooks/use-clinic";
+import { useClinicUsers, useClinicSchedules, useClinicServices, useAllDoctorSchedules } from "../hooks/use-clinic";
 import { useAuth } from "../contexts/auth-context";
 import { supabase } from "../lib/supabase";
 import type { AppointmentWithRelations, ClinicService, PotentialTreatment, TreatmentPayment } from "../lib/types";
@@ -85,6 +85,7 @@ export function Agenda() {
   const isDoctor = user?.role === "doctor";
   const activeServices = useMemo(() => clinicServicesList.filter(s => s.is_active), [clinicServicesList]);
   const doctors = useMemo(() => clinicUsers.filter(u => u.role === "doctor" || u.role === "admin"), [clinicUsers]);
+  const allDoctorSchedules = useAllDoctorSchedules();
   const [aptForm, setAptForm] = useState({ patient_id: "", doctor_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "" });
   const [editForm, setEditForm] = useState({ date: "", start_time: "", duration_minutes: "", type: "", status: "", notes: "", doctor_id: "" });
 
@@ -902,10 +903,42 @@ export function Agenda() {
             <div><label className={labelClass}>Fecha *</label><input type="date" className={inputClass} value={aptForm.date} onChange={e => { setAptForm({ ...aptForm, date: e.target.value }); setOverlapConfirmed(false); }} /></div>
             <div><label className={labelClass}>Hora *</label>
               <select className={inputClass} value={aptForm.start_time} onChange={e => { setAptForm({ ...aptForm, start_time: e.target.value }); setOverlapConfirmed(false); }}>
-                {timeSlots.map(t => <option key={t} value={t}>{to12h(t)}</option>)}
+                {(() => {
+                  const docId = aptForm.doctor_id || user?.id;
+                  const docScheds = allDoctorSchedules.filter(s => s.doctor_id === docId);
+                  if (!docScheds.length || !aptForm.date) return timeSlots.map(t => <option key={t} value={t}>{to12h(t)}</option>);
+                  const d = new Date(aptForm.date + "T12:00:00");
+                  const jsDay = d.getDay();
+                  const dbDay = jsDay === 0 ? 6 : jsDay - 1;
+                  const daySched = docScheds.find(s => s.day_of_week === dbDay && s.is_active);
+                  if (!daySched) return timeSlots.map(t => <option key={t} value={t}>{to12h(t)}</option>);
+                  const docSlots = generateTimeSlots(daySched.start_time.slice(0, 5), daySched.end_time.slice(0, 5));
+                  return docSlots.map(t => <option key={t} value={t}>{to12h(t)}</option>);
+                })()}
               </select>
             </div>
           </div>
+          {/* Doctor unavailability warning */}
+          {aptForm.date && (() => {
+            const docId = aptForm.doctor_id || user?.id;
+            const docScheds = allDoctorSchedules.filter(s => s.doctor_id === docId);
+            if (!docScheds.length) return null;
+            const d = new Date(aptForm.date + "T12:00:00");
+            const jsDay = d.getDay();
+            const dbDay = jsDay === 0 ? 6 : jsDay - 1;
+            const daySched = docScheds.find(s => s.day_of_week === dbDay && s.is_active);
+            if (daySched) return null;
+            const docName = doctors.find(doc => doc.id === docId)?.full_name || "El doctor";
+            return (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div className="text-[0.8125rem]">
+                  <p className="font-medium">Doctor no disponible</p>
+                  <p className="mt-0.5 text-[0.75rem]">{docName} no tiene disponibilidad configurada para este día</p>
+                </div>
+              </div>
+            );
+          })()}
           {/* Overlap warning */}
           {aptForm.date && aptForm.start_time && (() => {
             const overlaps = findOverlaps(aptForm.date, aptForm.start_time, parseInt(aptForm.duration_minutes));

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase, supabaseNoSession } from "../lib/supabase";
 import { useAuth } from "../contexts/auth-context";
-import type { User, ClinicService, ClinicBranch, ClinicSchedule, NotificationPreferences } from "../lib/types";
+import type { User, ClinicService, ClinicBranch, ClinicSchedule, DoctorSchedule, NotificationPreferences } from "../lib/types";
 
 export function useClinicUsers() {
   const { clinic } = useAuth();
@@ -64,6 +64,64 @@ export function useClinicSchedules() {
   }
 
   return { schedules, loading, saveSchedules };
+}
+
+export function useDoctorSchedules(doctorId: string | null) {
+  const { clinic } = useAuth();
+  const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchSchedules = useCallback(async () => {
+    if (!clinic || !doctorId) { setSchedules([]); return; }
+    setLoading(true);
+
+    const { data } = await supabase
+      .from("doctor_schedules")
+      .select("*")
+      .eq("clinic_id", clinic.id)
+      .eq("doctor_id", doctorId)
+      .order("day_of_week");
+
+    if (data) setSchedules(data as unknown as DoctorSchedule[]);
+    setLoading(false);
+  }, [clinic, doctorId]);
+
+  useEffect(() => {
+    fetchSchedules();
+  }, [fetchSchedules]);
+
+  async function saveSchedules(doctorId: string, updated: Partial<DoctorSchedule>[]) {
+    if (!clinic) return { error: "No hay clínica activa" };
+
+    const { error } = await supabase
+      .from("doctor_schedules")
+      .upsert(
+        updated.map((s) => ({ ...s, clinic_id: clinic.id, doctor_id: doctorId })) as Record<string, unknown>[]
+      );
+
+    if (!error) fetchSchedules();
+    return { error: error?.message || null };
+  }
+
+  return { schedules, loading, saveSchedules, refetch: fetchSchedules };
+}
+
+export function useAllDoctorSchedules() {
+  const { clinic } = useAuth();
+  const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
+
+  useEffect(() => {
+    if (!clinic) return;
+    (async () => {
+      const { data } = await supabase
+        .from("doctor_schedules")
+        .select("*")
+        .eq("clinic_id", clinic.id);
+      if (data) setSchedules(data as unknown as DoctorSchedule[]);
+    })();
+  }, [clinic]);
+
+  return schedules;
 }
 
 export function useNotificationPreferences() {

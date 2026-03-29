@@ -341,6 +341,16 @@ export interface ClinicSchedule {
   is_active: boolean;
 }
 
+export interface DoctorSchedule {
+  id: string;
+  clinic_id: string;
+  doctor_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
+}
+
 export interface NotificationPreferences {
   id: string;
   user_id: string;

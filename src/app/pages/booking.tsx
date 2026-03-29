@@ -105,6 +105,7 @@ export function Booking() {
 
   // Step 2: Date
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [doctorSchedules, setDoctorSchedules] = useState<Schedule[]>([]);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -179,6 +180,22 @@ export function Booking() {
   }, [clinicId]);
 
   // --------------------------------------------------------
+  // Fetch doctor-specific schedules
+  // --------------------------------------------------------
+  useEffect(() => {
+    if (!clinicId || !selectedDoctor) { setDoctorSchedules([]); return; }
+    (async () => {
+      const { data } = await supabase
+        .from("doctor_schedules")
+        .select("day_of_week, start_time, end_time, is_active")
+        .eq("clinic_id", clinicId)
+        .eq("doctor_id", selectedDoctor.id);
+      if (data) setDoctorSchedules(data as unknown as Schedule[]);
+      else setDoctorSchedules([]);
+    })();
+  }, [clinicId, selectedDoctor]);
+
+  // --------------------------------------------------------
   // Fetch existing appointments for selected doctor + date
   // --------------------------------------------------------
   useEffect(() => {
@@ -219,14 +236,24 @@ export function Booking() {
     [schedules],
   );
 
+  /** Set of active db day_of_week values for selected doctor */
+  const doctorActiveDays = useMemo(
+    () => doctorSchedules.length > 0
+      ? new Set(doctorSchedules.filter((s) => s.is_active).map((s) => s.day_of_week))
+      : null,
+    [doctorSchedules],
+  );
+
   const isDateSelectable = useCallback(
     (date: Date) => {
       if (date < today) return false;
       if (date > maxDate) return false;
       const dbDay = jsToDbDayOfWeek(date.getDay());
-      return activeDays.has(dbDay);
+      if (!activeDays.has(dbDay)) return false;
+      if (doctorActiveDays && !doctorActiveDays.has(dbDay)) return false;
+      return true;
     },
-    [today, maxDate, activeDays],
+    [today, maxDate, activeDays, doctorActiveDays],
   );
 
   const calendarDays = useMemo(() => {
@@ -256,10 +283,12 @@ export function Booking() {
     const schedule = schedules.find((s) => s.day_of_week === dbDay && s.is_active);
     if (!schedule) return [];
 
-    const allSlots = generateSlots(
-      schedule.start_time.slice(0, 5),
-      schedule.end_time.slice(0, 5),
-    );
+    // Use doctor schedule hours if available, otherwise clinic hours
+    const docSched = doctorSchedules.find((s) => s.day_of_week === dbDay && s.is_active);
+    const startTime = docSched ? docSched.start_time.slice(0, 5) : schedule.start_time.slice(0, 5);
+    const endTime = docSched ? docSched.end_time.slice(0, 5) : schedule.end_time.slice(0, 5);
+
+    const allSlots = generateSlots(startTime, endTime);
 
     // Build set of taken time ranges
     const takenMinutes = new Set<number>();
@@ -283,7 +312,7 @@ export function Booking() {
       if (isToday && mins <= nowMinutes) return false;
       return true;
     });
-  }, [selectedDate, schedules, existingAppointments, today]);
+  }, [selectedDate, schedules, doctorSchedules, existingAppointments, today]);
 
   // --------------------------------------------------------
   // Submit

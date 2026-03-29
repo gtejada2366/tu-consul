@@ -27,7 +27,7 @@ import {
   Copy,
 } from "lucide-react";
 import { useAuth } from "../contexts/auth-context";
-import { useClinicUsers, useClinicSchedules, useNotificationPreferences, useClinicMutations, useUserMutations, useClinicBranches, useClinicServices } from "../hooks/use-clinic";
+import { useClinicUsers, useClinicSchedules, useDoctorSchedules, useNotificationPreferences, useClinicMutations, useUserMutations, useClinicBranches, useClinicServices } from "../hooks/use-clinic";
 import { supabase } from "../lib/supabase";
 import { inputClass, labelClass } from "../components/modals/form-classes";
 import type { ClinicBranch, ClinicService, ClinicSchedule, ClinicSunatConfig } from "../lib/types";
@@ -97,6 +97,28 @@ export function Settings() {
 
   function updateScheduleField(dayIndex: number, field: string, value: string | boolean) {
     setScheduleEdits(prev => ({
+      ...prev,
+      [dayIndex]: { ...prev[dayIndex] || {}, [field]: value }
+    }));
+  }
+
+  // Doctor schedule state
+  const doctorsList = clinicUsers.filter(u => (u.role === "doctor" || u.role === "admin") && u.is_active);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
+  const { schedules: doctorSchedules, loading: doctorSchedulesLoading, saveSchedules: saveDoctorSchedules } = useDoctorSchedules(selectedDoctorId);
+  const [doctorScheduleEdits, setDoctorScheduleEdits] = useState<Record<number, { start_time: string; end_time: string; is_active: boolean }>>({});
+
+  function getDoctorScheduleValue(dayIndex: number, field: "start_time" | "end_time" | "is_active") {
+    const edit = doctorScheduleEdits[dayIndex];
+    const schedule = doctorSchedules.find(s => s.day_of_week === dayIndex);
+    if (edit && field in edit) return edit[field];
+    if (field === "start_time") return schedule?.start_time?.slice(0, 5) || "09:00";
+    if (field === "end_time") return schedule?.end_time?.slice(0, 5) || "18:00";
+    return schedule?.is_active ?? false;
+  }
+
+  function updateDoctorScheduleField(dayIndex: number, field: string, value: string | boolean) {
+    setDoctorScheduleEdits(prev => ({
       ...prev,
       [dayIndex]: { ...prev[dayIndex] || {}, [field]: value }
     }));
@@ -721,6 +743,76 @@ export function Settings() {
                         else toast.success("Horarios guardados correctamente");
                       }}>
                         <Save className="w-4 h-4 mr-2" />Guardar Horarios
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <CardTitle>Disponibilidad por Doctor</CardTitle>
+                  <select
+                    className="h-10 px-3 bg-surface border border-border rounded-[10px] text-[0.875rem] text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={selectedDoctorId || ""}
+                    onChange={e => { setSelectedDoctorId(e.target.value || null); setDoctorScheduleEdits({}); }}
+                  >
+                    <option value="">Seleccionar doctor</option>
+                    {doctorsList.map(d => (
+                      <option key={d.id} value={d.id}>{d.full_name}{d.specialty ? ` — ${d.specialty}` : ""}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-[0.75rem] text-foreground-secondary mt-1">Configura los días y horas en que cada doctor está disponible para citas</p>
+              </CardHeader>
+              <CardContent>
+                {!selectedDoctorId ? (
+                  <p className="text-[0.875rem] text-foreground-secondary text-center py-6">Selecciona un doctor para configurar su disponibilidad</p>
+                ) : doctorSchedulesLoading ? <Loading /> : (
+                  <div className="space-y-4">
+                    {dayNames.map((day, index) => (
+                      <div key={day} className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 w-40">
+                          <input type="checkbox" checked={getDoctorScheduleValue(index, "is_active") as boolean}
+                            onChange={e => updateDoctorScheduleField(index, "is_active", e.target.checked)}
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+                          <span className="text-[0.875rem] font-medium text-foreground">{day}</span>
+                        </label>
+                        {getDoctorScheduleValue(index, "is_active") ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <input type="time" value={getDoctorScheduleValue(index, "start_time") as string}
+                              onChange={e => updateDoctorScheduleField(index, "start_time", e.target.value)}
+                              className="h-10 px-3 bg-surface border border-border rounded-[10px] text-[0.875rem] text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+                            <span className="text-foreground-secondary">a</span>
+                            <input type="time" value={getDoctorScheduleValue(index, "end_time") as string}
+                              onChange={e => updateDoctorScheduleField(index, "end_time", e.target.value)}
+                              className="h-10 px-3 bg-surface border border-border rounded-[10px] text-[0.875rem] text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+                          </div>
+                        ) : (
+                          <span className="text-[0.8125rem] text-foreground-secondary italic">No disponible</span>
+                        )}
+                      </div>
+                    ))}
+                    <div className="pt-4">
+                      <Button variant="primary" onClick={async () => {
+                        if (!selectedDoctorId) return;
+                        const updated = dayNames.map((_, index) => {
+                          const existing = doctorSchedules.find(s => s.day_of_week === index);
+                          return {
+                            ...(existing || {}),
+                            day_of_week: index,
+                            start_time: getDoctorScheduleValue(index, "start_time") as string,
+                            end_time: getDoctorScheduleValue(index, "end_time") as string,
+                            is_active: getDoctorScheduleValue(index, "is_active") as boolean,
+                          };
+                        });
+                        const { error } = await saveDoctorSchedules(selectedDoctorId, updated);
+                        if (error) toast.error("Error al guardar disponibilidad");
+                        else { toast.success("Disponibilidad guardada"); setDoctorScheduleEdits({}); }
+                      }}>
+                        <Save className="w-4 h-4 mr-2" />Guardar Disponibilidad
                       </Button>
                     </div>
                   </div>
