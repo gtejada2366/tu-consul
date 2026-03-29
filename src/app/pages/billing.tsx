@@ -5,8 +5,8 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Loading } from "../components/ui/loading";
 import { Modal } from "../components/ui/modal";
-import { Plus, Search, Download, DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Calendar, X, Undo2 } from "lucide-react";
-import { useInvoices, useInvoiceMutations } from "../hooks/use-invoices";
+import { Plus, Search, Download, DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Calendar, X, Eye, Trash2 } from "lucide-react";
+import { useInvoices, useInvoiceMutations, useInvoicePayments } from "../hooks/use-invoices";
 import { usePatients } from "../hooks/use-patients";
 import { inputClass, labelClass, textareaClass } from "../components/modals/form-classes";
 import { BILLING_SERVICES, PAYMENT_METHODS, toLocalDateStr } from "../lib/constants";
@@ -20,7 +20,7 @@ const statusConfig = {
 
 export function Billing() {
   const { invoices, loading, totalRevenue, pendingRevenue, collectionRate, refetch } = useInvoices();
-  const { createInvoice, registerPayment, revertPayment } = useInvoiceMutations();
+  const { createInvoice, registerPayment, deletePayment } = useInvoiceMutations();
   const { patients } = usePatients();
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending" | "overdue">("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -28,6 +28,8 @@ export function Billing() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<typeof invoices[0] | null>(null);
   const [payingInvoiceId, setPayingInvoiceId] = useState("");
   const [payingPatientName, setPayingPatientName] = useState("");
   const [payingAmount, setPayingAmount] = useState("");
@@ -37,6 +39,8 @@ export function Billing() {
   const [saving, setSaving] = useState(false);
   const [invoiceForm, setInvoiceForm] = useState({ patient_id: "", amount: "", service: "", notes: "" });
   const [amountError, setAmountError] = useState("");
+
+  const { payments, refetchPayments } = useInvoicePayments(selectedInvoice?.id ?? null);
 
   const filteredBilling = useMemo(() => invoices.filter(bill => {
     const patientName = bill.patient?.full_name || "";
@@ -246,16 +250,9 @@ export function Billing() {
                             <Button variant="primary" size="sm" onClick={() => openPayModal(bill.id, patientName, bill.amount, bill.amount_paid || 0)}>Cobrar</Button>
                           )}
                           {(bill.amount_paid || 0) > 0 && (
-                            <span title="Revertir pago">
-                              <Button variant="tertiary" size="sm" onClick={async () => {
-                                if (!confirm(`¿Revertir el pago de S/${(bill.amount_paid || 0).toFixed(2)} para ${patientName}? El cobro volverá a estado pendiente.`)) return;
-                                const { error } = await revertPayment(bill.id);
-                                if (error) toast.error(error);
-                                else { toast.success("Pago revertido"); refetch(); }
-                              }}>
-                                <Undo2 className="w-4 h-4" />
-                              </Button>
-                            </span>
+                            <Button variant="tertiary" size="sm" onClick={() => { setSelectedInvoice(bill); setShowHistoryModal(true); }}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
                           )}
                         </div>
                       </td>
@@ -350,6 +347,73 @@ export function Billing() {
             <Button variant="primary" size="md" onClick={handleRegisterPayment} disabled={saving}>{saving ? "Procesando..." : "Registrar Cobro"}</Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Payment History Modal */}
+      <Modal open={showHistoryModal} onClose={() => { setShowHistoryModal(false); setSelectedInvoice(null); }} title="Historial de Pagos" size="md">
+        {selectedInvoice && (
+          <div className="space-y-4">
+            <div className="p-3 bg-surface-alt rounded-[10px]">
+              <p className="text-[0.875rem] font-medium text-foreground">{selectedInvoice.patient?.full_name}</p>
+              <p className="text-[0.75rem] text-foreground-secondary mt-0.5">{selectedInvoice.service}</p>
+              <div className="flex items-center gap-4 mt-2 text-[0.75rem] text-foreground-secondary">
+                <span>Total: <strong className="text-primary">S/{selectedInvoice.amount.toFixed(2)}</strong></span>
+                <span>Pagado: <strong className="text-success">S/{(selectedInvoice.amount_paid || 0).toFixed(2)}</strong></span>
+                <span>Saldo: <strong className="text-warning">S/{(selectedInvoice.amount - (selectedInvoice.amount_paid || 0)).toFixed(2)}</strong></span>
+              </div>
+              {(selectedInvoice.amount_paid || 0) > 0 && selectedInvoice.amount > 0 && (
+                <div className="mt-2">
+                  <div className="h-1.5 bg-border/50 rounded-full overflow-hidden">
+                    <div className="h-full bg-success rounded-full" style={{ width: `${Math.min(100, ((selectedInvoice.amount_paid || 0) / selectedInvoice.amount) * 100)}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {payments.length > 0 ? (
+              <div className="space-y-2">
+                {payments.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-2.5 bg-surface-alt rounded-[10px]">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[0.875rem] font-semibold text-success">S/{Number(p.amount).toFixed(2)}</span>
+                        <Badge variant="default">{p.payment_method}</Badge>
+                      </div>
+                      <p className="text-[0.6875rem] text-foreground-secondary mt-0.5">
+                        {(() => { const [y,m,d] = p.payment_date.split("-"); const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]; return `${d} ${months[parseInt(m)-1]} ${y}`; })()}
+                        {p.notes && ` — ${p.notes}`}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        if (!confirm(`¿Eliminar pago de S/${Number(p.amount).toFixed(2)}?`)) return;
+                        setSaving(true);
+                        const { error } = await deletePayment(p.id, p.invoice_id, Number(p.amount));
+                        setSaving(false);
+                        if (error) toast.error(error);
+                        else {
+                          toast.success("Pago eliminado");
+                          refetch();
+                          refetchPayments();
+                          // Update local selected invoice
+                          setSelectedInvoice(prev => prev ? { ...prev, amount_paid: Math.max(0, (prev.amount_paid || 0) - Number(p.amount)), status: "pending" as const } : null);
+                        }
+                      }}
+                      className="text-danger hover:text-danger hover:bg-danger/10 flex-shrink-0"
+                      disabled={saving}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[0.875rem] text-foreground-secondary text-center py-4">No hay pagos registrados individualmente</p>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

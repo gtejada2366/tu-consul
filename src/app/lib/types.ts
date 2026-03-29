@@ -284,6 +284,17 @@ export interface InvoiceWithPatient extends Invoice {
   patient: Pick<Patient, "full_name">;
 }
 
+export interface InvoicePayment {
+  id: string;
+  clinic_id: string;
+  invoice_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface ClinicService {
   id: string;
   clinic_id: string;
