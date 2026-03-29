@@ -78,6 +78,7 @@ export function useLabOrderMutations() {
     doctor_id?: string;
     lab_name: string;
     item_description: string;
+    quantity?: number;
     teeth?: string;
     material?: string;
     shade?: string;
@@ -93,6 +94,7 @@ export function useLabOrderMutations() {
       doctor_id: data.doctor_id || user?.id,
       lab_name: data.lab_name,
       item_description: data.item_description,
+      quantity: data.quantity || 1,
       teeth: data.teeth || null,
       material: data.material || null,
       shade: data.shade || null,

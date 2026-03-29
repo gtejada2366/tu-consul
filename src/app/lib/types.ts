@@ -358,6 +358,7 @@ export interface LabOrder {
   doctor_id: string;
   lab_name: string;
   item_description: string;
+  quantity: number;
   teeth: string | null;
   material: string | null;
   shade: string | null;

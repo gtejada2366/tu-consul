@@ -63,6 +63,7 @@ const emptyForm = {
   doctor_id: "",
   lab_name: "",
   item_description: "",
+  quantity: "1",
   teeth: "",
   material: "",
   shade: "",
@@ -119,6 +120,7 @@ export function Laboratory() {
       doctor_id: form.doctor_id || undefined,
       lab_name: form.lab_name.trim(),
       item_description: form.item_description.trim(),
+      quantity: parseInt(form.quantity) || 1,
       teeth: form.teeth.trim() || undefined,
       material: form.material || undefined,
       shade: form.shade.trim() || undefined,
@@ -237,6 +239,7 @@ export function Laboratory() {
       doctor_id: order.doctor_id || "",
       lab_name: order.lab_name,
       item_description: order.item_description,
+      quantity: String(order.quantity || 1),
       teeth: order.teeth || "",
       material: order.material || "",
       shade: order.shade || "",
@@ -262,6 +265,7 @@ export function Laboratory() {
       doctor_id: editForm.doctor_id || null,
       lab_name: editForm.lab_name.trim(),
       item_description: editForm.item_description.trim(),
+      quantity: parseInt(editForm.quantity) || 1,
       teeth: editForm.teeth.trim() || null,
       material: editForm.material || null,
       shade: editForm.shade.trim() || null,
@@ -483,6 +487,7 @@ export function Laboratory() {
                         <td className="px-6 py-4">
                           <p className="text-[0.875rem] text-foreground-secondary">
                             {order.item_description}
+                            {(order.quantity || 1) > 1 && <span className="font-semibold text-foreground"> x{order.quantity}</span>}
                           </p>
                           {order.teeth && (
                             <p className="text-[0.75rem] text-foreground-secondary">
@@ -631,8 +636,8 @@ export function Laboratory() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="col-span-2">
               <label className={labelClass}>Item / Trabajo *</label>
               <select
                 className={inputClass}
@@ -646,6 +651,16 @@ export function Laboratory() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className={labelClass}>Cantidad</label>
+              <input
+                type="number"
+                min="1"
+                className={inputClass}
+                value={form.quantity}
+                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+              />
             </div>
           </div>
 
@@ -780,8 +795,8 @@ export function Laboratory() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="col-span-2">
               <label className={labelClass}>Item / Trabajo *</label>
               <select
                 className={inputClass}
@@ -795,6 +810,16 @@ export function Laboratory() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className={labelClass}>Cantidad</label>
+              <input
+                type="number"
+                min="1"
+                className={inputClass}
+                value={editForm.quantity}
+                onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
+              />
             </div>
           </div>
 
@@ -1068,6 +1093,7 @@ export function Laboratory() {
                 </p>
                 <p className="text-[0.875rem] text-foreground">
                   {selectedOrder.item_description}
+                  {(selectedOrder.quantity || 1) > 1 && <span className="font-semibold"> x{selectedOrder.quantity}</span>}
                 </p>
               </div>
               {selectedOrder.teeth && (
