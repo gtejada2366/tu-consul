@@ -246,14 +246,16 @@ export function Billing() {
                             <Button variant="primary" size="sm" onClick={() => openPayModal(bill.id, patientName, bill.amount, bill.amount_paid || 0)}>Cobrar</Button>
                           )}
                           {(bill.amount_paid || 0) > 0 && (
-                            <Button variant="tertiary" size="sm" onClick={async () => {
-                              if (!confirm(`¿Revertir el pago de S/${(bill.amount_paid || 0).toFixed(2)} para ${patientName}? El cobro volverá a estado pendiente.`)) return;
-                              const { error } = await revertPayment(bill.id);
-                              if (error) toast.error(error);
-                              else { toast.success("Pago revertido"); refetch(); }
-                            }} title="Revertir pago">
-                              <Undo2 className="w-4 h-4" />
-                            </Button>
+                            <span title="Revertir pago">
+                              <Button variant="tertiary" size="sm" onClick={async () => {
+                                if (!confirm(`¿Revertir el pago de S/${(bill.amount_paid || 0).toFixed(2)} para ${patientName}? El cobro volverá a estado pendiente.`)) return;
+                                const { error } = await revertPayment(bill.id);
+                                if (error) toast.error(error);
+                                else { toast.success("Pago revertido"); refetch(); }
+                              }}>
+                                <Undo2 className="w-4 h-4" />
+                              </Button>
+                            </span>
                           )}
                         </div>
                       </td>
