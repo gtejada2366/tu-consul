@@ -32,12 +32,30 @@ import {
 } from "../lib/constants";
 import { SearchableSelect } from "../components/ui/searchable-select";
 import type { LabOrderWithRelations } from "../lib/types";
+import { MiniOdontogram } from "../components/mini-odontogram";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—";
   const [y, m, d] = dateStr.split("-");
   const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   return `${d} ${months[parseInt(m) - 1]} ${y}`;
+}
+
+function teethStringToArray(str: string): number[] {
+  if (!str.trim()) return [];
+  return str.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+}
+
+function teethArrayToString(arr: number[]): string {
+  return arr.sort((a, b) => a - b).join(", ");
+}
+
+function toggleTooth(current: string, tooth: number): string {
+  const arr = teethStringToArray(current);
+  const idx = arr.indexOf(tooth);
+  if (idx >= 0) arr.splice(idx, 1);
+  else arr.push(tooth);
+  return teethArrayToString(arr);
 }
 
 const emptyForm = {
@@ -629,16 +647,19 @@ export function Laboratory() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className={labelClass}>Pieza(s) Dental(es)</label>
-              <input
-                type="text"
-                className={inputClass}
-                value={form.teeth}
-                onChange={(e) => setForm({ ...form, teeth: e.target.value })}
-                placeholder="Ej: 1.1, 2.3"
+          </div>
+
+          <div>
+            <label className={labelClass}>Pieza(s) Dental(es)</label>
+            <div className="mt-1 p-3 bg-surface-alt border border-border rounded-[10px] overflow-x-auto">
+              <MiniOdontogram
+                selectedTeeth={teethStringToArray(form.teeth)}
+                onToggle={(t) => setForm({ ...form, teeth: toggleTooth(form.teeth, t) })}
               />
             </div>
+            {form.teeth && (
+              <p className="text-[0.75rem] text-foreground-secondary mt-1">Seleccionadas: {form.teeth}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -775,16 +796,19 @@ export function Laboratory() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className={labelClass}>Pieza(s) Dental(es)</label>
-              <input
-                type="text"
-                className={inputClass}
-                value={editForm.teeth}
-                onChange={(e) => setEditForm({ ...editForm, teeth: e.target.value })}
-                placeholder="Ej: 1.1, 2.3"
+          </div>
+
+          <div>
+            <label className={labelClass}>Pieza(s) Dental(es)</label>
+            <div className="mt-1 p-3 bg-surface-alt border border-border rounded-[10px] overflow-x-auto">
+              <MiniOdontogram
+                selectedTeeth={teethStringToArray(editForm.teeth)}
+                onToggle={(t) => setEditForm({ ...editForm, teeth: toggleTooth(editForm.teeth, t) })}
               />
             </div>
+            {editForm.teeth && (
+              <p className="text-[0.75rem] text-foreground-secondary mt-1">Seleccionadas: {editForm.teeth}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
