@@ -52,7 +52,12 @@ export function Billing() {
 
   const dayRevenue = useMemo(() => filteredBilling.reduce((sum, i) => sum + (i.amount_paid || 0), 0), [filteredBilling]);
   const dayPending = useMemo(() => filteredBilling.filter(i => i.status !== "paid").reduce((sum, i) => sum + (i.amount - (i.amount_paid || 0)), 0), [filteredBilling]);
-  const dayCollectionRate = useMemo(() => filteredBilling.length > 0 ? Math.round((filteredBilling.filter(i => i.status === "paid").length / filteredBilling.length) * 100) : 0, [filteredBilling]);
+  const dayCollectionRate = useMemo(() => {
+    const totalAmount = filteredBilling.reduce((sum, i) => sum + i.amount, 0);
+    if (totalAmount <= 0) return 0;
+    const totalPaid = filteredBilling.reduce((sum, i) => sum + (i.amount_paid || 0), 0);
+    return Math.round((totalPaid / totalAmount) * 100);
+  }, [filteredBilling]);
 
   async function handleCreateInvoice(e: React.FormEvent) {
     e.preventDefault();

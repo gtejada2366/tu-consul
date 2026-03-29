@@ -38,8 +38,9 @@ export function useInvoices() {
     .filter((i) => i.status === "pending" || i.status === "overdue")
     .reduce((sum, i) => sum + (i.amount - (i.amount_paid || 0)), 0);
 
-  const collectionRate = invoices.length > 0
-    ? Math.round((invoices.filter((i) => i.status === "paid").length / invoices.length) * 100)
+  const totalAmount = invoices.reduce((sum, i) => sum + i.amount, 0);
+  const collectionRate = totalAmount > 0
+    ? Math.round((totalRevenue / totalAmount) * 100)
     : 0;
 
   return { invoices, loading, totalRevenue, pendingRevenue, collectionRate, refetch: fetchInvoices };
