@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Outlet } from "react-router";
 import { Sidebar } from "../components/sidebar";
 import { TopBar } from "../components/topbar";
@@ -7,6 +7,7 @@ import { OnboardingWizard } from "../components/onboarding-wizard";
 
 export function RootLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const handleCloseMobile = useCallback(() => setMobileMenuOpen(false), []);
 
   return (
     <AuthGuard>
@@ -14,7 +15,7 @@ export function RootLayout() {
         Ir al contenido principal
       </a>
       <div className="flex h-screen bg-background overflow-hidden">
-        <Sidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+        <Sidebar mobileOpen={mobileMenuOpen} onClose={handleCloseMobile} />
         <div className="flex flex-col flex-1 overflow-hidden">
           <TopBar onMenuToggle={() => setMobileMenuOpen(true)} />
           <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-8">
