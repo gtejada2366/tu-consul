@@ -4,6 +4,7 @@ import { Navigate } from "react-router";
 import {
   Calendar, Users, FileCheck, BarChart3, MessageCircle,
   Globe, Shield, Check, ArrowRight, Star, Stethoscope, ChevronRight,
+  ClipboardX, CalendarX, Receipt,
 } from "lucide-react";
 import { SUBSCRIPTION_PLANS } from "../lib/constants";
 
@@ -111,23 +112,25 @@ export function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {[
               {
-                emoji: "📋",
+                icon: ClipboardX,
                 title: "Agendas en papel o Excel",
                 desc: "Pacientes que se cruzan, horarios que no cuadran, citas que se pierden.",
               },
               {
-                emoji: "💸",
+                icon: CalendarX,
                 title: "Pacientes que no llegan",
                 desc: "Sin recordatorios automáticos, el 30% de citas se pierden por inasistencia.",
               },
               {
-                emoji: "🧾",
+                icon: Receipt,
                 title: "SUNAT es un dolor de cabeza",
                 desc: "Emitir boletas electrónicas con otro sistema que no se conecta con nada.",
               },
             ].map((p) => (
-              <div key={p.title} className="p-6 rounded-2xl bg-red-50/60 border border-red-100">
-                <span className="text-3xl mb-3 block">{p.emoji}</span>
+              <div key={p.title} className="p-6 rounded-2xl bg-white border border-gray-200">
+                <div className="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center mb-4">
+                  <p.icon className="w-5 h-5" />
+                </div>
                 <h3 className="text-base font-semibold text-gray-900 mb-2">{p.title}</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">{p.desc}</p>
               </div>
