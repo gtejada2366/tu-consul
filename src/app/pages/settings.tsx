@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -82,6 +82,14 @@ export function Settings() {
   const [clinicEmail, setClinicEmail] = useState(clinic?.email || "");
   const [clinicPhone, setClinicPhone] = useState(clinic?.phone || "");
   const [clinicAddress, setClinicAddress] = useState(clinic?.address || "");
+
+  useEffect(() => {
+    if (!clinic) return;
+    setClinicName(clinic.name || "");
+    setClinicEmail(clinic.email || "");
+    setClinicPhone(clinic.phone || "");
+    setClinicAddress(clinic.address || "");
+  }, [clinic?.id, clinic?.name, clinic?.email, clinic?.phone, clinic?.address]);
 
   // Schedule form state
   const [scheduleEdits, setScheduleEdits] = useState<Record<number, { start_time: string; end_time: string; is_active: boolean }>>({});
@@ -213,8 +221,12 @@ export function Settings() {
     const { error } = await updateClinic({
       name: clinicName, email: clinicEmail, phone: clinicPhone, address: clinicAddress,
     });
-    if (error) toast.error("Error al guardar los datos de la clínica");
-    else toast.success("Cambios guardados correctamente");
+    if (error) {
+      toast.error("Error al guardar los datos de la clínica");
+      return;
+    }
+    await refreshUser();
+    toast.success("Cambios guardados correctamente");
   }
 
   async function handleChangePassword() {
@@ -699,8 +711,9 @@ export function Settings() {
 
           {/* ===== SCHEDULE TAB (admin) ===== */}
           {activeTab === "schedule" && isAdmin && (
+            <>
             <Card>
-              <CardHeader><CardTitle>Horarios de Atención</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Horarios de Atención Clínica</CardTitle></CardHeader>
               <CardContent>
                 {schedulesLoading ? <Loading /> : (
                   <div className="space-y-4">
@@ -819,6 +832,7 @@ export function Settings() {
                 )}
               </CardContent>
             </Card>
+            </>
           )}
 
           {/* ===== NOTIFICATIONS TAB (everyone) ===== */}
