@@ -188,28 +188,36 @@ export const INTEREST_TAGS = [
   "Referido",
 ];
 
+// Tag colors are semantic, not one-hue-per-tag. Three categories:
+// - neutral (default): services/interests — the tag text is enough
+// - attention (amber): medical concerns needing follow-up
+// - highlight (blue): special status tags
+const NEUTRAL = { bg: "bg-gray-50",  text: "text-gray-700",  border: "border-gray-200" };
+const ATTENTION = { bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" };
+const HIGHLIGHT = { bg: "bg-blue-50",  text: "text-blue-700",  border: "border-blue-200" };
+
 export const INTEREST_TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  "Blanqueamiento":        { bg: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-200" },
-  "Ortodoncia":            { bg: "bg-blue-50",    text: "text-blue-700",    border: "border-blue-200" },
-  "Implantes":             { bg: "bg-violet-50",  text: "text-violet-700",  border: "border-violet-200" },
-  "Carillas":              { bg: "bg-pink-50",    text: "text-pink-700",    border: "border-pink-200" },
-  "Prótesis":              { bg: "bg-indigo-50",  text: "text-indigo-700",  border: "border-indigo-200" },
-  "Endodoncia":            { bg: "bg-orange-50",  text: "text-orange-700",  border: "border-orange-200" },
-  "Limpieza profunda":     { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-  "Corona dental":         { bg: "bg-cyan-50",    text: "text-cyan-700",    border: "border-cyan-200" },
-  "Cirugía oral":          { bg: "bg-red-50",     text: "text-red-700",     border: "border-red-200" },
-  "Periodoncia":           { bg: "bg-teal-50",    text: "text-teal-700",    border: "border-teal-200" },
-  "Bruxismo":              { bg: "bg-slate-50",   text: "text-slate-700",   border: "border-slate-200" },
-  "Sensibilidad dental":   { bg: "bg-sky-50",     text: "text-sky-700",     border: "border-sky-200" },
-  "Enfermedad periodontal":{ bg: "bg-rose-50",    text: "text-rose-700",    border: "border-rose-200" },
-  "Caries múltiples":      { bg: "bg-fuchsia-50", text: "text-fuchsia-700", border: "border-fuchsia-200" },
-  "Paciente VIP":          { bg: "bg-yellow-50",  text: "text-yellow-700",  border: "border-yellow-200" },
-  "Seguimiento pendiente": { bg: "bg-lime-50",    text: "text-lime-700",    border: "border-lime-200" },
-  "Reactivar":             { bg: "bg-purple-50",  text: "text-purple-700",  border: "border-purple-200" },
-  "Referido":              { bg: "bg-green-50",   text: "text-green-700",   border: "border-green-200" },
+  "Blanqueamiento":         NEUTRAL,
+  "Ortodoncia":             NEUTRAL,
+  "Implantes":              NEUTRAL,
+  "Carillas":               NEUTRAL,
+  "Prótesis":               NEUTRAL,
+  "Endodoncia":             NEUTRAL,
+  "Limpieza profunda":      NEUTRAL,
+  "Corona dental":          NEUTRAL,
+  "Cirugía oral":           NEUTRAL,
+  "Periodoncia":            NEUTRAL,
+  "Bruxismo":               NEUTRAL,
+  "Sensibilidad dental":    ATTENTION,
+  "Enfermedad periodontal": ATTENTION,
+  "Caries múltiples":       ATTENTION,
+  "Seguimiento pendiente":  ATTENTION,
+  "Paciente VIP":           HIGHLIGHT,
+  "Reactivar":              HIGHLIGHT,
+  "Referido":               HIGHLIGHT,
 };
 
-const DEFAULT_TAG_COLOR = { bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200" };
+const DEFAULT_TAG_COLOR = NEUTRAL;
 
 export function getTagColor(tag: string) {
   return INTEREST_TAG_COLORS[tag] || DEFAULT_TAG_COLOR;
