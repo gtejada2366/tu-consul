@@ -131,7 +131,7 @@ export function Landing() {
                 <div className="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center mb-4">
                   <p.icon className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-semibold text-gray-900 mb-2">{p.title}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{p.title}</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">{p.desc}</p>
               </div>
             ))}
@@ -152,48 +152,18 @@ export function Landing() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              {
-                icon: Calendar,
-                title: "Agenda Inteligente",
-                desc: "Gestiona citas de múltiples doctores. Vista diaria con estados en tiempo real.",
-                color: "bg-blue-100 text-blue-600",
-              },
-              {
-                icon: Globe,
-                title: "Reserva Online",
-                desc: "Link público para que tus pacientes reserven desde Instagram o WhatsApp. 24/7.",
-                color: "bg-green-100 text-green-600",
-              },
-              {
-                icon: FileCheck,
-                title: "Facturación SUNAT",
-                desc: "Emite boletas y facturas electrónicas directo desde el sistema. 100% integrado.",
-                color: "bg-violet-100 text-violet-600",
-              },
-              {
-                icon: Users,
-                title: "Historia Clínica Digital",
-                desc: "Odontograma interactivo, recetas, resultados de lab. Todo en un perfil.",
-                color: "bg-amber-100 text-amber-600",
-              },
-              {
-                icon: BarChart3,
-                title: "Reportes Financieros",
-                desc: "Sabe cuánto facturas, qué servicio rinde más y qué doctor produce más.",
-                color: "bg-emerald-100 text-emerald-600",
-              },
-              {
-                icon: MessageCircle,
-                title: "Campañas WhatsApp",
-                desc: "Envía promociones segmentadas a tus pacientes por WhatsApp.",
-                color: "bg-pink-100 text-pink-600",
-              },
+              { icon: Calendar, title: "Agenda Inteligente", desc: "Gestiona citas de múltiples doctores. Vista diaria con estados en tiempo real." },
+              { icon: Globe, title: "Reserva Online", desc: "Link público para que tus pacientes reserven desde Instagram o WhatsApp. 24/7." },
+              { icon: FileCheck, title: "Facturación SUNAT", desc: "Emite boletas y facturas electrónicas directo desde el sistema. 100% integrado." },
+              { icon: Users, title: "Historia Clínica Digital", desc: "Odontograma interactivo, recetas, resultados de lab. Todo en un perfil." },
+              { icon: BarChart3, title: "Reportes Financieros", desc: "Sabe cuánto facturas, qué servicio rinde más y qué doctor produce más." },
+              { icon: MessageCircle, title: "Campañas WhatsApp", desc: "Envía promociones segmentadas a tus pacientes por WhatsApp." },
             ].map((f) => (
-              <div key={f.title} className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
-                <div className={`w-12 h-12 rounded-xl ${f.color} flex items-center justify-center mb-4`}>
-                  <f.icon className="w-6 h-6" />
+              <div key={f.title} className="bg-white rounded-2xl p-6 border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all">
+                <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-5">
+                  <f.icon className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-semibold text-gray-900 mb-2">{f.title}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{f.title}</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">{f.desc}</p>
               </div>
             ))}
@@ -219,7 +189,7 @@ export function Landing() {
                 <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl font-bold mx-auto mb-4">
                   {s.step}
                 </div>
-                <h3 className="text-base font-semibold text-gray-900 mb-2">{s.title}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{s.title}</h3>
                 <p className="text-sm text-gray-600">{s.desc}</p>
               </div>
             ))}
@@ -294,14 +264,18 @@ export function Landing() {
       <section className="py-16 sm:py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="max-w-2xl mx-auto text-center">
-            <Stethoscope className="w-10 h-10 text-blue-600 mx-auto mb-6" />
-            <blockquote className="text-xl sm:text-2xl font-medium text-gray-900 leading-relaxed mb-6">
+            <blockquote className="text-xl sm:text-2xl font-medium text-gray-900 leading-relaxed mb-8">
               "Antes perdía 3-4 pacientes por semana porque se olvidaban de su cita.
               Con Tu Consul y las reservas online, mi agenda está siempre llena."
             </blockquote>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Dra. María López</p>
-              <p className="text-sm text-gray-500">Clínica Dental Sonrisa, Lima</p>
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shrink-0">
+                <span className="text-white font-semibold text-base">ML</span>
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-900">Dra. María López</p>
+                <p className="text-sm text-gray-500">Clínica Dental Sonrisa, Lima</p>
+              </div>
             </div>
           </div>
         </div>
