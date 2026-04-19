@@ -447,25 +447,25 @@ export function Reports() {
           icon={DollarSign}
           label="Ingresos del Mes"
           value={formatCurrency(monthRevenue)}
-          color="#6366f1"
+          color="#2563eb"
         />
         <KpiCard
           icon={Receipt}
           label="Ticket Promedio"
           value={formatCurrency(avgTicket)}
-          color="#f59e0b"
+          color="#2563eb"
         />
         <KpiCard
           icon={TrendingUp}
           label="Total Cobrado (Año)"
           value={formatCurrency(yearPaid)}
-          color="#10b981"
+          color="#2563eb"
         />
         <KpiCard
           icon={Percent}
           label="Tasa de Cobro"
           value={`${collectionRate}%`}
-          color="#ef4444"
+          color="#2563eb"
         />
       </div>
 
