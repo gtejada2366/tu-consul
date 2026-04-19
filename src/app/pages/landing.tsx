@@ -242,33 +242,33 @@ export function Landing() {
             {SUBSCRIPTION_PLANS.map((plan) => (
               <div
                 key={plan.key}
-                className={`relative rounded-2xl p-6 ${
+                className={`relative rounded-2xl p-6 bg-white ${
                   plan.key === "premium"
-                    ? "bg-blue-600 text-white border-2 border-blue-600 shadow-xl shadow-blue-600/20"
-                    : "bg-white border-2 border-gray-100"
+                    ? "border-2 border-blue-600 shadow-lg shadow-blue-600/10"
+                    : "border border-gray-200"
                 }`}
               >
                 {plan.key === "premium" && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-full">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
                       Más Popular
                     </span>
                   </div>
                 )}
-                <h3 className={`text-lg font-semibold mb-1 ${plan.key === "premium" ? "text-white" : "text-gray-900"}`}>
+                <h3 className="text-lg font-semibold mb-1 text-gray-900">
                   {plan.name}
                 </h3>
                 <div className="mb-5">
-                  <span className={`text-4xl font-extrabold ${plan.key === "premium" ? "text-white" : "text-gray-900"}`}>
+                  <span className="text-4xl font-extrabold text-gray-900">
                     S/{plan.price}
                   </span>
-                  <span className={`text-sm ${plan.key === "premium" ? "text-blue-200" : "text-gray-500"}`}>/mes</span>
+                  <span className="text-sm text-gray-500">/mes</span>
                 </div>
                 <ul className="space-y-3 mb-6">
                   {plan.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm">
-                      <Check className={`w-4 h-4 mt-0.5 shrink-0 ${plan.key === "premium" ? "text-blue-200" : "text-blue-600"}`} />
-                      <span className={plan.key === "premium" ? "text-blue-100" : "text-gray-600"}>{f}</span>
+                      <Check className="w-4 h-4 mt-0.5 shrink-0 text-blue-600" />
+                      <span className="text-gray-600">{f}</span>
                     </li>
                   ))}
                 </ul>
@@ -276,9 +276,9 @@ export function Landing() {
                   to="/login"
                   className={`block w-full text-center text-sm font-semibold py-3 rounded-xl transition-colors ${
                     plan.key === "premium"
-                      ? "bg-white text-blue-600 hover:bg-blue-50"
-                      : plan.key === "basic"
                       ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : plan.key === "basic"
+                      ? "bg-gray-900 text-white hover:bg-gray-800"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
