@@ -58,24 +58,22 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
     <>
       {/* Logo */}
       <div className="h-16 flex items-center justify-between border-b border-border px-4 md:px-6 md:justify-center">
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center gap-2">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0"
+          >
+            <span className="text-white font-semibold text-sm">TC</span>
+          </motion.div>
           {!collapsed && (
             <motion.h1
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-[1.25rem] font-semibold text-primary"
+              className="text-[1.125rem] font-semibold text-foreground"
             >
               Tu Consul
             </motion.h1>
-          )}
-          {collapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center"
-            >
-              <span className="text-white font-semibold text-sm">TC</span>
-            </motion.div>
           )}
         </div>
         {/* Close button - mobile only */}
