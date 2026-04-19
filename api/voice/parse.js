@@ -1,7 +1,7 @@
 import { getClinicFromRequest } from "../sunat/_lib/supabase-admin.js";
 import { IncomingForm } from "formidable";
 import { createReadStream } from "fs";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const config = {
@@ -41,8 +41,9 @@ Reglas:
 
 async function transcribeAudio(audioPath) {
   const openai = new OpenAI({ apiKey: process.env.OPEN_AI || process.env.OPENAI_API_KEY });
+  const file = await toFile(createReadStream(audioPath), "dictado.webm", { type: "audio/webm" });
   const transcription = await openai.audio.transcriptions.create({
-    file: createReadStream(audioPath),
+    file,
     model: "whisper-1",
     language: "es",
   });
