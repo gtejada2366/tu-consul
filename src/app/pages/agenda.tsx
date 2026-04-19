@@ -564,8 +564,8 @@ export function Agenda() {
                 <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">% Atendidos</p>
                 <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.occupancy_pct}%</p>
               </div>
-              <div className="w-10 h-10 rounded-[10px] bg-success/10 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-5 h-5 text-success" />
+              <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-5 h-5 text-primary" />
               </div>
             </div>
           </Card>
@@ -575,8 +575,8 @@ export function Agenda() {
                 <p className="text-[0.6875rem] font-medium text-foreground-secondary mb-1">Atendidos</p>
                 <p className="text-[1.5rem] font-semibold text-foreground leading-none">{stats.patients_attended}</p>
               </div>
-              <div className="w-10 h-10 rounded-[10px] bg-warning/10 flex items-center justify-center flex-shrink-0">
-                <Users className="w-5 h-5 text-warning" />
+              <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Users className="w-5 h-5 text-primary" />
               </div>
             </div>
           </Card>

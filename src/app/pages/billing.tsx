@@ -151,8 +151,8 @@ export function Billing() {
                 <p className="text-[1.75rem] font-semibold text-foreground leading-none">S/{(dateFilter ? dayPending : pendingRevenue).toLocaleString()}</p>
                 <p className="text-[0.75rem] text-foreground-secondary mt-1">{(dateFilter ? filteredBilling : invoices).filter(b => b.status !== "paid").length} facturas</p>
               </div>
-              <div className="w-12 h-12 rounded-[10px] bg-warning/10 flex items-center justify-center flex-shrink-0">
-                <Clock className="w-6 h-6 text-warning" />
+              <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-6 h-6 text-primary" />
               </div>
             </div>
           </div>
@@ -165,8 +165,8 @@ export function Billing() {
                 <p className="text-[1.75rem] font-semibold text-foreground leading-none">{(dateFilter ? dayCollectionRate : collectionRate)}%</p>
                 <p className="text-[0.75rem] text-success mt-1">{(dateFilter ? dayCollectionRate : collectionRate) >= 80 ? "Excelente" : (dateFilter ? dayCollectionRate : collectionRate) >= 60 ? "Buena" : "Mejorable"}</p>
               </div>
-              <div className="w-12 h-12 rounded-[10px] bg-success/10 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-6 h-6 text-success" />
+              <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-6 h-6 text-primary" />
               </div>
             </div>
           </div>

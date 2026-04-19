@@ -355,8 +355,8 @@ export function Laboratory() {
                   {pendingCount} pedidos
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-[10px] bg-warning/10 flex items-center justify-center flex-shrink-0">
-                <Clock className="w-6 h-6 text-warning" />
+              <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-6 h-6 text-primary" />
               </div>
             </div>
           </div>
@@ -372,8 +372,8 @@ export function Laboratory() {
                   S/{totalCost.toLocaleString()}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-[10px] bg-success/10 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="w-6 h-6 text-success" />
+              <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-6 h-6 text-primary" />
               </div>
             </div>
           </div>
