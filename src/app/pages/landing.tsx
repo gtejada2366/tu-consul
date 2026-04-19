@@ -56,8 +56,8 @@ export function Landing() {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 sm:pb-20">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-full px-4 py-1.5 mb-6">
-              <Star className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-700">Software #1 para clínicas dentales en Perú</span>
+              <Stethoscope className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-700">Hecho para clínicas dentales en Perú</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
               Factura más y pierde menos pacientes
