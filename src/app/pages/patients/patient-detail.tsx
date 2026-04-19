@@ -9,8 +9,9 @@ import { Modal } from "../../components/ui/modal";
 import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, FileText, Trash2, AlertCircle,
   Plus, User, Heart, Stethoscope, Shield, Tag, X, MessageCircle, CreditCard,
-  Check, DollarSign, ClipboardList, ChevronDown, ChevronUp, Banknote
+  Check, DollarSign, ClipboardList, ChevronDown, ChevronUp, Banknote, Mic
 } from "lucide-react";
+import { VoiceDictationModal, type ParsedDictation } from "../../components/voice-dictation-modal";
 import { usePatient, usePatientMutations } from "../../hooks/use-patients";
 import { usePatientAppointments, useAppointmentMutations } from "../../hooks/use-appointments";
 import { useMedicalHistory, useConsultationMutations } from "../../hooks/use-medical-history";
@@ -68,6 +69,8 @@ export function PatientDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAptModal, setShowAptModal] = useState(false);
   const [showConModal, setShowConModal] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [voiceExtras, setVoiceExtras] = useState<{ prescripciones?: ParsedDictation["prescripciones"]; proxima_cita?: ParsedDictation["proxima_cita"] } | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Potential billing state
@@ -146,6 +149,28 @@ export function PatientDetail() {
       toast.success("Evolución registrada"); setShowConModal(false);
       setConForm({ title: "", description: "", blood_pressure: "", temperature: "", weight: "", height: "", diagnosis: "" });
       refetchHistory();
+    }
+  }
+
+  function handleVoiceApply(parsed: ParsedDictation) {
+    const descriptionParts: string[] = [];
+    if (parsed.motivo_consulta) descriptionParts.push(`Motivo: ${parsed.motivo_consulta}`);
+    if (parsed.tratamiento_realizado) descriptionParts.push(`Tratamiento: ${parsed.tratamiento_realizado}`);
+    if (parsed.observaciones) descriptionParts.push(`Observaciones: ${parsed.observaciones}`);
+
+    setConForm(prev => ({
+      ...prev,
+      title: parsed.motivo_consulta || prev.title || "Consulta",
+      description: descriptionParts.join("\n") || prev.description,
+      diagnosis: parsed.diagnostico || prev.diagnosis,
+    }));
+
+    const extras = {
+      prescripciones: parsed.prescripciones?.length ? parsed.prescripciones : undefined,
+      proxima_cita: parsed.proxima_cita || undefined,
+    };
+    if (extras.prescripciones || extras.proxima_cita) {
+      setVoiceExtras(extras);
     }
   }
 
@@ -975,6 +1000,24 @@ export function PatientDetail() {
       {/* Consultation Modal */}
       <Modal open={showConModal} onClose={() => setShowConModal(false)} title="Registrar Evolución" size="lg">
         <form onSubmit={handleCreateCon} className="space-y-4">
+          <button
+            type="button"
+            onClick={() => setShowVoiceModal(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-primary/5 hover:bg-primary/10 border border-primary/20 text-primary font-medium text-sm transition-colors"
+          >
+            <Mic className="w-4 h-4" /> Dictar con voz (Claude + Whisper)
+          </button>
+          {voiceExtras && (voiceExtras.prescripciones || voiceExtras.proxima_cita) && (
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-[0.8125rem] text-amber-900">
+              <p className="font-medium mb-1">Datos adicionales detectados (no se guardan automáticamente en este POC):</p>
+              {voiceExtras.prescripciones && (
+                <p>• Prescripciones: {voiceExtras.prescripciones.map(p => p.medicamento).join(", ")}</p>
+              )}
+              {voiceExtras.proxima_cita && (
+                <p>• Próxima cita: {voiceExtras.proxima_cita.tipo || "Cita"} en {voiceExtras.proxima_cita.dias_desde_hoy ?? "?"} días</p>
+              )}
+            </div>
+          )}
           <div><label className={labelClass}>Título *</label><input type="text" className={inputClass} placeholder="Ej: Consulta de control" value={conForm.title} onChange={e => setConForm({ ...conForm, title: e.target.value })} /></div>
           <div><label className={labelClass}>Descripción</label><textarea className={textareaClass} placeholder="Descripción..." value={conForm.description} onChange={e => setConForm({ ...conForm, description: e.target.value })} /></div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -990,6 +1033,12 @@ export function PatientDetail() {
           </div>
         </form>
       </Modal>
+
+      <VoiceDictationModal
+        open={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        onApply={handleVoiceApply}
+      />
 
     </div>
   );
