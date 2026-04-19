@@ -28,14 +28,14 @@ import { useAuth } from "../contexts/auth-context";
 // ---------------------------------------------------------------------------
 
 const COLORS = [
-  "#6366f1",
-  "#f59e0b",
-  "#10b981",
-  "#ef4444",
-  "#8b5cf6",
-  "#06b6d4",
-  "#f97316",
-  "#ec4899",
+  "#2563eb",
+  "#60a5fa",
+  "#1e40af",
+  "#93c5fd",
+  "#1e3a8a",
+  "#bfdbfe",
+  "#3b82f6",
+  "#dbeafe",
 ];
 
 const MONTH_NAMES = [
