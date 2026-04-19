@@ -57,11 +57,30 @@ export function Agenda() {
   const { patients } = usePatients();
   const { schedules } = useClinicSchedules();
 
+  const [view, setView] = useState<"day" | "week">("day");
+
   // Dynamic time slots from clinic schedule for current day of week
   const dayOfWeek = currentDate.getDay();
   const dbDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   const todaySchedule = schedules.find(s => s.day_of_week === dbDayOfWeek && s.is_active);
-  const timeSlots = generateTimeSlots(todaySchedule?.start_time?.slice(0, 5), todaySchedule?.end_time?.slice(0, 5));
+  const dayTimeSlots = generateTimeSlots(todaySchedule?.start_time?.slice(0, 5), todaySchedule?.end_time?.slice(0, 5));
+
+  // Week view: use the widest range across all active days
+  const weekTimeSlots = useMemo(() => {
+    const activeSchedules = schedules.filter(s => s.is_active);
+    if (activeSchedules.length === 0) return generateTimeSlots();
+    let earliest = "23:59";
+    let latest = "00:00";
+    for (const s of activeSchedules) {
+      const st = s.start_time.slice(0, 5);
+      const et = s.end_time.slice(0, 5);
+      if (st < earliest) earliest = st;
+      if (et > latest) latest = et;
+    }
+    return generateTimeSlots(earliest, latest);
+  }, [schedules]);
+
+  const timeSlots = view === "week" ? weekTimeSlots : dayTimeSlots;
 
   // Week days array for week view
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -70,7 +89,6 @@ export function Agenda() {
     return d;
   });
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | null>(null);
-  const [view, setView] = useState<"day" | "week">("day");
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -86,6 +104,33 @@ export function Agenda() {
   const activeServices = useMemo(() => clinicServicesList.filter(s => s.is_active), [clinicServicesList]);
   const doctors = useMemo(() => clinicUsers.filter(u => u.role === "doctor" || u.role === "admin"), [clinicUsers]);
   const allDoctorSchedules = useAllDoctorSchedules();
+
+  // Doctor unavailability helpers
+  const filteredDocScheds = useMemo(() => {
+    if (selectedDoctors.length !== 1) return null;
+    const scheds = allDoctorSchedules.filter(s => s.doctor_id === selectedDoctors[0]);
+    return scheds.length > 0 ? scheds : null;
+  }, [selectedDoctors, allDoctorSchedules]);
+
+  const isDayBlockedForDoctor = useMemo(() => {
+    if (!filteredDocScheds) return false;
+    return !filteredDocScheds.find(s => s.day_of_week === dbDayOfWeek && s.is_active);
+  }, [filteredDocScheds, dbDayOfWeek]);
+
+  const filteredDocName = useMemo(() => {
+    if (selectedDoctors.length !== 1) return "";
+    const d = doctors.find(d => d.id === selectedDoctors[0]);
+    const name = d?.full_name || "Doctor";
+    return name.startsWith("Dr.") ? name : `Dr. ${name}`;
+  }, [selectedDoctors, doctors]);
+
+  function isWeekDayBlockedForDoctor(date: Date): boolean {
+    if (!filteredDocScheds) return false;
+    const jsDay = date.getDay();
+    const dbDay = jsDay === 0 ? 6 : jsDay - 1;
+    return !filteredDocScheds.find(s => s.day_of_week === dbDay && s.is_active);
+  }
+
   const [aptForm, setAptForm] = useState({ patient_id: "", doctor_id: "", date: "", start_time: "09:00", duration_minutes: "30", type: "Consulta General", status: "pending", notes: "" });
   const [editForm, setEditForm] = useState({ date: "", start_time: "", duration_minutes: "", type: "", status: "", notes: "", doctor_id: "" });
 
@@ -434,6 +479,7 @@ export function Agenda() {
         doctor_id: completionApt.doctor_id || user?.id,
         lab_name: "",
         item_description: l.service_name,
+        quantity: l.quantity || 1,
         teeth: null,
         material: null,
         shade: null,
@@ -705,6 +751,16 @@ export function Agenda() {
                     ));
                   })()}
                 </div>
+                {/* Blocked overlay for unavailable doctor */}
+                {isDayBlockedForDoctor && (
+                  <div className="absolute inset-0 bg-red-50/80 dark:bg-red-950/40 z-20 flex items-center justify-center" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(239,68,68,0.07) 10px, rgba(239,68,68,0.07) 20px)" }}>
+                    <div className="bg-white dark:bg-gray-900 rounded-[12px] shadow-lg px-6 py-4 text-center border border-red-200 dark:border-red-800">
+                      <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                      <p className="text-[0.9375rem] font-semibold text-red-700 dark:text-red-300">{filteredDocName}</p>
+                      <p className="text-[0.8125rem] text-red-500 dark:text-red-400">No disponible este día</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -735,12 +791,15 @@ export function Agenda() {
                     const dayIdx = weekDays.indexOf(d);
                     const isToday = dateStr === formatDate(new Date());
                     const isSelected = dateStr === formatDate(currentDate);
+                    const isBlocked = isWeekDayBlockedForDoctor(d);
                     return (
                       <button key={dateStr} onClick={() => { setCurrentDate(new Date(d)); setView("day"); }}
-                        className={`py-3 text-center border-r border-border last:border-r-0 transition-colors hover:bg-surface-alt
-                          ${isToday ? "bg-primary/5" : ""} ${isSelected ? "bg-primary/10" : ""}`}>
-                        <p className="text-[0.6875rem] font-medium text-foreground-secondary">{WEEK_DAY_NAMES[dayIdx]}</p>
-                        <p className={`text-[1rem] font-semibold mt-0.5 ${isToday ? "text-primary" : "text-foreground"}`}>{d.getDate()}</p>
+                        className={`py-3 text-center border-r border-border last:border-r-0 transition-colors hover:bg-surface-alt relative
+                          ${isToday && !isBlocked ? "bg-primary/5" : ""} ${isSelected && !isBlocked ? "bg-primary/10" : ""}
+                          ${isBlocked ? "bg-red-50/60 dark:bg-red-950/20" : ""}`}>
+                        <p className={`text-[0.6875rem] font-medium ${isBlocked ? "text-red-400 dark:text-red-500" : "text-foreground-secondary"}`}>{WEEK_DAY_NAMES[dayIdx]}</p>
+                        <p className={`text-[1rem] font-semibold mt-0.5 ${isBlocked ? "text-red-400 dark:text-red-500" : isToday ? "text-primary" : "text-foreground"}`}>{d.getDate()}</p>
+                        {isBlocked && <p className="text-[0.5625rem] text-red-400 dark:text-red-500 mt-0.5">No disponible</p>}
                       </button>
                     );
                   })}
@@ -770,8 +829,10 @@ export function Agenda() {
                           const dateStr = formatDate(d);
                           const isToday = dateStr === formatDate(new Date());
                           const isDayDropTarget = dropTarget === `date:${dateStr}`;
+                          const isDayBlocked = isWeekDayBlockedForDoctor(d);
                           return (
-                            <div key={dateStr} className={`border-r border-border last:border-r-0 ${isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15" : ""}`}
+                            <div key={dateStr} className={`border-r border-border last:border-r-0 ${isDayBlocked ? "bg-red-50/40 dark:bg-red-950/15" : isToday ? "bg-primary/5" : ""} ${isDayDropTarget ? "bg-primary/15" : ""}`}
+                              style={isDayBlocked ? { backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 8px, rgba(239,68,68,0.04) 8px, rgba(239,68,68,0.04) 16px)" } : undefined}
                               onDragOver={e => handleDragOver(e, `date:${dateStr}`)} onDragLeave={handleDragLeave} onDrop={e => handleDropOnDay(e, dateStr)}>
                               {slots.map((time, slotIdx) => {
                                 const isHalf = slotIdx > 0;
